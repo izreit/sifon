@@ -1,0 +1,24 @@
+{
+  "name": "sifon",
+  "version": "0.1.0",
+  "description": "A metaprogrammable altJS",
+  "keywords": [
+    "compiler",
+    "language",
+    "javascript"
+  ],
+  "author": "kizz",
+  "license": "MIT",
+  "main": "src/cui/sifon.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "devDependencies": {
+    "modulr": "~0.14.0",
+    "chai": "~1.9.1"
+  },
+  "dependencies": {
+    "minimist": "~0.1.0",
+    "yargs": "~1.3.1"
+  }
+}

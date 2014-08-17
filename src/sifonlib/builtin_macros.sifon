@@ -1,0 +1,230 @@
+## vim: set ts=2 sw=2 sts=2 et ai:
+
+## Copyright (c) 2014 Kaname Kizu
+## Released under the MIT License.
+
+builtin_macros .= {}
+
+macro builtin-macro (name args body) ->
+  `-> macro ,name ,args ,body
+      builtin_macros.,name .= # ,args ,body
+
+builtin-macro (*if) (node cond) ->
+  `(if ,cond ,node)
+
+builtin-macro (*unless) (node cond) ->
+  `(if (not ,cond) ,node)
+
+builtin-macro (*++) node ->
+  `|> <<post++>> ,node
+
+builtin-macro (*--) node ->
+  `|> <<post-->> ,node
+
+builtin-macro (*.) (lhs, rhs) ->
+  match rhs
+   [head, ...args] ->
+     `|> ,lhs.,head ,@args
+   head ->
+     `|> ,lhs.,head
+
+builtin-macro (*when) (expr whenpart) ->
+  ## TOTHINK should use `match` instead of `if`?  Or introduce another one that uses `match`?
+  [cond, body] .= whenpart
+  sym .= @gensym "_it"
+  `-> ,sym .= ,expr
+      macro-scope ->
+        symbol-macro %it -> ',sym
+        if ,cond ,body ,sym 
+
+builtin-macro (*catch) (trypart catchpart) ->
+  match trypart
+   ['try, ..._, ['finally, ...]] -> 
+     `|> try ,trypart
+          catch ,@catchpart
+   ['try, ...] -> 
+     `|> ,@trypart (catch ,@catchpart)
+   ['(*catch), ...] ->
+     sym .= @gensym ()
+     `|> meta-do ->
+           ,sym .= %macroexpand-1 ,trypart
+           `|> ,@(,sym.[0]) (catch ,@'(,catchpart))
+   _ ->
+     `|> try ,trypart
+          catch ,@catchpart
+
+builtin-macro (*finally) (trypart finallypart) ->
+  match trypart
+   ['try, ..._, ['finally, ...]] -> 
+     `|> try ,@trypart
+          finally ,finallypart
+   ['try, ...] -> 
+     `|> ,@trypart (finally ,finallypart)
+   ['(*catch), ...] ->
+     sym .= @gensym ()
+     `|> meta-do ->
+           ,sym .= %macroexpand-1 ,trypart
+           `|> ,@(,sym.[0]) (finally ,',finallypart)
+   _ ->
+     `|> try ,trypart
+          finally ,finallypart
+
+builtin-macro (*NODE_DEBUG) node ->
+  if (process.env.NODE_DEBUG) node undefined
+
+builtin-macro unless (cond, then_clause, else_clause .= undefined) ->
+  `|> if (not ,cond) ,then_clause ,else_clause
+
+builtin-macro (#+) (args, body) ->
+  `|> (# ,args ,body).bind this
+  ## TODO Use the following unless ES5...
+  ##`|> (#(s f) -> (# -> f.apply s arguments)) this # ,args ,body
+
+macro extract= (sym, pat) ->
+  `|> ,sym .= match ,sym
+                ,pat -> it
+                _ -> ,sym
+
+builtin-macro (#match) (...body) ->
+  body .extract= [['->, ...it]]
+  `|> #() -> match arguments.[0] ,@body
+
+builtin-macro (#match+) (...body) ->
+  body .extract= [['->, ...it]]
+  `|> #+() -> match arguments.[0] ,@body
+
+builtin-macro do (arg, block) ->
+  [arg, block] .= [[], arg] *unless block
+  arg .extract= ['<<tuple>>, ...it]
+  match arg
+   [...] ->
+     `|> (# ,arg ,block) ,@arg
+   _ ->
+     `|> (# ,arg ,block) ,arg
+
+builtin-macro loop (label, block) ->
+  [label, block] .= [undefined, label] *unless block
+  if label ->
+     `|> for () ,label ,block
+   else ->
+     `|> for () ,block
+
+builtin-macro case (...cases) ->
+  cases .extract= [['->, ...it]]
+  cs .= cases.map #(c) ->
+    cond .= match c.[0]
+              ['typeof, ...] ->
+                throw |> @expansionFailure "A pattern in case cannot have `typeof'"
+              ['instanceof, ...] ->
+                throw |> @expansionFailure "A pattern in case cannot have `instanceof'"
+              '_ -> c.[0]
+              _ ->  `|> if ,(c.[0])
+    [cond, c.[1]]
+  `|> match false ,@cs
+
+builtin-macro =freeze (lhs, rhs) ->
+  if (@optimizing ())
+   -> `|> ,lhs .= ,rhs
+   -> `|> ,lhs .= Object.freeze ,rhs
+
+## if (typeof ,freezee == "object") (Object.freezee ,freezee) ,freezee
+
+builtin-macro reap (tag, block) ->
+  block .or ([tag, block] .= ['_, tag])
+  tagstr .= tag.toString ()
+  res .= @gensym ("_reaping" .+ tagstr)
+  `|> macro-scope ->
+        ,res .= []
+        macro sow (value, t .= '_) ->
+          if (t.toString () .!= ,tagstr)
+            throw |> @expansionFailure "Tag mismatch."
+          `|> ,',res.push ,value
+        ,block
+        ,res
+
+## list.(foo) value
+
+
+## List.prototype
+## 
+## class Foo ->
+##   foo .= zoo
+##   value .= zoo
+##   constructor ()
+##     value
+## 
+## buitin-macro class (name, def_block) ->
+##  `|> meta-do ->
+##        macro initialize .=
+##        do ,def_block
+
+## builtin-macro is-a (v, ...types) ->
+##   (types.length .> 0) .or throw "The macro is-a requires two or more argument." 
+
+## builtin-macro math-expr (...expr) ->
+## 
+##   macro is-one-of (a, vs) ->
+##     ['<<tuple>>, vs] .= vs
+##     tests .= vs.map #(v) -> `(,a .== ,v)
+##     `|> or ,@tests
+## 
+##   idx .= 0
+##   peek .= # -> expr.[idx]
+##   read .= # -> expr.[idx *++]
+## 
+##   can_primary .= #->
+##     next .= peek ()
+##     next .is-one-of ('void
+##      "SYMBOL" ->
+##        value foo + y + 100 * sin x ** 2 % foo.value z 1 100
+## 
+##   primary .= # ->
+##     head .= peek ()
+##     if (head.nodetype .== "ARRAY")
+##      -> if (head.0 .is-one-of ('<<array>>, '<<object>>, '#))
+##          -> read ()
+##          -> expression ()
+##      -> read ()
+## 
+##   member .= # ->
+##     next .= peek ()
+##     if (next .== 'new) ->
+##     head .= primary () 
+## 
+##   postfix .= # ->
+##     m .= member ()
+##     match (peek ())
+##      '++ ->
+##        read ()
+##        `(<<post++>> ,m)
+##      '-- ->
+##        read ()
+##        `(<<post-->> ,m)
+##      -> m
+## 
+##   unary .= # ->
+##     op .= peek ()
+##     if (op .is-one-of ('delete, 'void, 'typeof, '++, '--, '+, '-, '~, '!))
+##       -> `(,(read ()) ,(unary ()))
+##       -> postfix ()
+## 
+##   multiplicative .= # ->
+##     lhs .= unary ()
+##     op .= peek ()
+##     if (op .is-one-of ('*, '/, '%))
+##       -> `(,(read ()) ,lhs ,(unary ()))
+##       -> lhs
+## 
+##   additive .= # ->
+##     lhs .= multiplicative ()
+##     op .= peek ()
+##     if (op .is-one-of ('+, '-))
+##       -> `(,(read ()) ,lhs ,(multiplicative ()))
+##       -> lhs
+## 
+
+module.exports .= {
+  builtin_macros
+}
+
+

@@ -1,0 +1,239 @@
+## vim: set ts=2 sw=2 sts=2 et ai:
+
+### Copyright (c) 2014 Kaname Kizu
+### Released under the MIT License.
+
+## meta ->
+##   node-matcher .= #(specs...) ->
+##     (specs.length .> 0) .or throw "array-matcher requires arguments"
+##   
+##     alts .= specs.map #match ->
+## 
+##       (typeof "string") ->
+##         #(sym) -> 
+##           ``((,sym.nodetype .== "SYMBOL") .&& (,sym.val .== ,,spec))
+## 
+##       ['<<array>>, ...] ->
+##         
+##       [(typeof "string") name, [min, max], ...child_specs] ->
+##       [(typeof "string") name, ...child_specs] ->
+##       [[min, max], ...child_specs] ->
+##       
+##       typefunc ->
+##         typefunc
+## 
+##     #(sym) ->
+##       codes .= alts.map #(a) -> a sym
+##       `|> or ,@codes
+## 
+## Symbol .= 
+##   #(sym) ->
+##     `|> ,sym.nodetype .== "SYMBOL"
+
+## macro meta-dump-expanded (...form) ->
+##   `|> -> meta |> console.log (JSON.stringify (macroexpand-1 ,@form).[0] null 1)
+##          ,form
+
+Node .= require "../core/Node"
+{ o, N, Symbol, SymbolButNot } .= NodeMatcherDSL .= require "../core/NodeMatcherDSL"
+
+static_evaluators_symbol .= {}
+static_evaluators .= []
+
+static_evaluation_symbol #(symname, handler) ->
+  static_evaluation_symbol.[symname] .= handler
+
+static_evaluation .= #(spec, handler) ->
+  matcher .= match spec
+              [...] ->
+                NodeMatcherDSL.makeMatcher spec
+              (typeof "string") ->
+                #(node) ->
+                  if (Node.is node "SYMBOL" node)
+                   -> { value: node }
+                   -> { fail: true, serious: false, node: node }
+
+  static_evaluators.push #(node, env) ->
+    arg .= matcher node
+    (not arg.fail) .or return [false, undefined]
+    [true, handler arg.value node env]
+
+static_evaluation_node .= #(nodetype, handler) ->
+  matcher .= #(node) ->
+    if (Node.isType node nodetype)
+     -> { value: node }
+     -> { fail: true, serious: false, node: node }
+
+  static_evaluators.push #(node, env) ->
+    arg .= matcher node
+    (not arg.fail) .or return [false, undefined]
+    [true, handler arg.value node env]
+
+
+Value .= #(node, type, val) ->
+  (this .instanceof Value) .or return (new Value node type val)
+  @node .= node
+  @type .= type .or "unknown"
+  @val .= val .or ()
+  this
+
+static_evaluation "true"  #(arg node env) -> Value node "boolean" true
+static_evaluation "false" #(arg node env) -> Value node "boolean" false
+static_evaluation "null"  #(arg node env) -> Value node "null"    null
+
+static_evaluation_node "NUM" #(arg node env) ->
+  Value node "number" (Number node.val)
+
+static_evaluation_node "STR" #(arg node env) ->
+  raw .= node.val.replace (new RegExp "^\\\"|\\\"$" "g") ""
+  Value node "string" raw
+
+static_evaluation_node "SYMBOL" #(arg node env) -> Value node
+
+constant_propagation .= #(op, handler) ->
+ static_evaluation
+   [
+     op
+     o "values" [2, N]
+   ]
+   #(arg, node, env) ->
+     arg.head .= node.[0]
+     sevs .= arg.values.map #(a) -> static_evaluate_x a env
+ 
+     return (Value node)
+       *if ((sevs.[0].type .== "unknown") .or (sevs.[1].type .== "unknown"))
+ 
+     ret .= [arg.head]
+     gaveup .= false
+     head .= sevs.shift ()
+     reduced .= sevs.reduce (#(acc, sev) ->
+       case 
+         gaveup ->
+           ret.push sev.node
+         (sev.type .== "unknown") ->
+           ret.push acc sev.node
+           gaveup .= true
+         _ ->
+           v .= handler acc sev.val
+           if ((typeof v .!= "number") .or ((Math.floor v) .== v))
+            -> v
+            -> ret.push acc sev.node
+               gaveup .= true
+     ) head.val
+ 
+     if gaveup
+      -> Value (Node.makeArray ret node)
+      -> Value reduced (typeof reduced) reduced
+
+constant_propagation "+" #(a, b) -> + a b
+constant_propagation "-" #(a, b) -> - a b
+constant_propagation "*" #(a, b) -> * a b
+constant_propagation "/" #(a, b) -> / a b
+
+
+## NOTE: Rejected Optimization
+## 
+##  - Double Negation Elimination (!!x => x)
+##      Since `!!x === x` is not true when `typeof x !== "boolean"`.
+##      In fact, `!!x` is used to convert the type of `x` to boolean.
+##      `Boolean(x)`, which performs same type conversion, can be used
+##      instead of `!!x` but it's hard for JavaScript engine to optimize
+##      `Boolean(x)` because the value `Boolean` may be altered.
+## 
+
+static_evaluation
+  [
+    o "head" "!" "not"
+    o "negatee"
+      o "eq" ["==", o "values" [2, N]]
+      o "ne" ["!=", o "values" [2, N]]
+      o "and_or" [
+          o "head" "||" "or" "&&" "and"
+          o "values" [2, N]
+        ]
+      o "general"
+  ]
+  #(arg, node, env) ->
+    neg .= arg.negatee
+    console.log (JSON.stringify neg)
+    case
+      neg.eq -> static_evaluate_x `(!= ,@(neg.eq.values)) env
+      neg.ne -> static_evaluate_x `(== ,@(neg.ne.values)) env
+      neg.and_or ->
+        Value node
+      neg.general ->
+        sev .= static_evaluate_x neg.general env
+        console.log (JSON.stringify sev)
+        if (sev.type .== "unknown")
+          -> Value node 
+          -> Value `(not ,(sev.node)) "boolean" (not sev.val)
+
+## static_evaluation
+##   [
+##     o "op" "!" "not"
+##     o "value"
+##   ]
+##   #(arg, node, env) ->
+##     sev .= static_evaluate_x arg.value env
+## 
+##     if (sev.type .== "unknown")
+##       -> Value node
+##       -> Value (not sev.val) "boolean" (not sev.val)
+
+static_evaluate_x .= #(node, env) ->
+  sev .= undefined
+  evaluated .= static_evaluators.some #(se) ->
+    [succ, sev] .= se node env
+    succ
+
+  ##if evaluated sev (Value node)
+  return sev *if evaluated
+  return (Value node) *unless Node.isType node "ARRAY"
+
+  Value |> node.map #(ch) ->
+    (static_evaluate_x ch env).node
+
+
+static_evaluate .= #(node, env) ->
+  sev .= static_evaluate_x node env
+  sev.node
+
+
+
+module.exports .= static_evaluate
+
+
+
+## !(x === b) (x !== b)
+## !(x !== b) (x === b)
+## (not (!= x b))
+
+## ((x === null) ? "null" : typeof x) === "string"
+## 
+## 
+## 
+## reduce "="
+## 
+## reduce "="
+##   [
+##     "="
+##     o "lhs"
+##        o "sym" Symbol
+##        o "arr" [ "<<array>>", o [0, N] ]
+##        o "obj" [ "<<object>>", o [0, N] ]
+##        o "general"
+##     o "rhs"
+##        o "arr" [ "<<array>>", o [0, N] ]
+##        o "obj" [ "<<object>>", o [0, N] ]
+##        o "general"
+##   ]
+##   foo #(arg, node, env, context) ->
+## 
+##     t = [y, x]
+##     [x, y] .= [y, x]
+## 
+##     t = x0 y0
+##     y1 = t 0
+##     x1 = t 1
+
+
