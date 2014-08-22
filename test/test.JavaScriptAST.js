@@ -205,7 +205,7 @@ describe("JavaScriptAST", function () {
     "match default 42"
   );
 
-  // Literal shortcut 
+  // Literal shortcut
   evaluating(
     js.Add(
       "LiteralShortCutTest",

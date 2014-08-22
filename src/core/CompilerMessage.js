@@ -109,7 +109,7 @@ var CompilerMessage = klass({
 
   formatLocation: function () {
     return (this.filename || "(the current compile target)")
-         + ":" + (this.line || "?") 
+         + ":" + (this.line || "?")
          + (this.col ? (":" + this.col) : "");
   },
 

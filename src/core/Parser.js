@@ -122,7 +122,7 @@ var Parser = klass({
       // We don't want to start implicit array for the qualifier *if.
       "QUALIFIER",
       // Ditto for colon. See parseColonedExpression_().
-      ":", 
+      ":",
     ]);
 
     return function () {
@@ -153,7 +153,7 @@ var Parser = klass({
         this.unlex_(token);
         token = Token.make("IMPLICIT_OPEN", undefined, token.line, token.col);
       }
-  
+
       return token;
     };
   })(),
@@ -293,7 +293,7 @@ var Parser = klass({
     return function () {
       var t, next;
       var node, nodes;
-  
+
       t = this.lex_();
       switch (t.toktype) {
       case "IMPLICIT_OPEN":
@@ -435,7 +435,7 @@ var Parser = klass({
     lhs = this.parseCallExpression_();
     if (lhs === undefined)
       return lhs;
-    
+
     if (token = this.lexIf_("OPERATOR")) {
       rhs = this.parseOperatorExpression_();
       if (rhs === undefined) {
@@ -465,7 +465,7 @@ var Parser = klass({
 
     if (nodes.length === 1)
       return head;
-    
+
     node = nodes[nodes.length - 1];
     if (Node.isType(node, "ARRAY") && node.length === 0)
       nodes.pop();

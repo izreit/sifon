@@ -44,7 +44,7 @@ var Environment = klass({
 
   _static: {
     EvalError: ScopingEval.EvalError,
-    ExpansionFailure: ExpansionFailure, 
+    ExpansionFailure: ExpansionFailure,
   },
 
   initialize: function () {
@@ -311,7 +311,7 @@ var Environment = klass({
   allMacrosFor: function (name) { return this.top_.macros.getAll(name); },
   allSymbolMacrosFor: function (name) { return this.top_.symbol_macros.getAll(name); },
 
-  
+
   utilValue: function (key) {
     var uv = this.top_.util_values.get(key);
     return uv && uv.symbol;

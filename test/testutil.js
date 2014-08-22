@@ -143,13 +143,13 @@ function detectNodeDifference(a, b) {
 function debugNodeStringify(node) {
   function filter(node) {
     if (!node) return node;
-  
+
     delete node.toktype;
     delete node.line;
     delete node.col;
-  
+
     delete node.array_opener;
-  
+
     switch (node.nodetype) {
     case "SYMBOL":
       return "'" + node.val;
@@ -160,10 +160,10 @@ function debugNodeStringify(node) {
     default:
       break;
     }
-  
+
     if (node instanceof Array)
       return node.map(filter);
-  
+
     return node;
   }
 

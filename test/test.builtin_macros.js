@@ -347,7 +347,7 @@ describe("builtin_macros", function () {
   //   if (@optimizing ())
   //    -> `|> ,lhs .= ,rhs
   //    -> `|> ,lhs .= Object.freeze ,rhs
-  // 
+  //
   // builtin-macro (*NODE_DEBUG) node ->
   //   if (process.env.NODE_DEBUG) node undefined
 

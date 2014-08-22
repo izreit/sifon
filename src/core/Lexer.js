@@ -237,7 +237,7 @@ module.exports = klass({
                     "[+\\-]?",                      // a sign,
                     "(?:0|[1-9]\\d*)",              // an integral part,
                     "(?:\\.\\d*)?",                 // the decimal point and a decimal part, and
-                    "(?:e[+\\-]?(?:0|[1-9]\\d*))?", // an exponential part 
+                    "(?:e[+\\-]?(?:0|[1-9]\\d*))?", // an exponential part
                 ")",
         ")",
         "(?![a-zA-Z_\\-*+/=!&?%<>])", // Reject confusing ones...
@@ -266,7 +266,7 @@ module.exports = klass({
 
   lexComment_: rule(/##[^\r\n\u2028\u2029]*|(?=.?)/g),
 
-  // *lex()*: the main interface 
+  // *lex()*: the main interface
   lex: function () {
     next: while (this.start_ < this.end_ || this.ungotten_.length > 0) {
 
@@ -334,7 +334,7 @@ module.exports = klass({
           this.onerror_(CompilerMessage.Warning.confusingArrayLiteral(token));
         }
       }
-      
+
       if (prev_toktype === "UNQUOTE" || prev_toktype === "UNQUOTE_S") {
         if (SPACES[this.last_char_]) {
           this.onerror_(CompilerMessage.Warning.unquoteFollowedBySpace(token));

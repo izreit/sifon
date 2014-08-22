@@ -372,7 +372,7 @@ function generate_quasiquoted(self, nest, node, env, context) {
         var pe;
         if (Node.isArrayWithHead(ch, "<<unquote>>")) {
           Node.confirmArity(ch, '"," (<<unquote>>)', 1, 1, self.onerror_);
-          pe = (nest === 0) 
+          pe = (nest === 0)
                   ? self.generate_(ch[1], env, AsExpression)
                   : generate_quasiquoted(self, nest - 1, ch, env, AsExpression);
           ps.push(pe[0]);
@@ -720,7 +720,7 @@ function make_matcher_x(self, matchee_ast, cond_node, env,
     result_struct_cond_asts.push(
         js.StrictEq(js.Dot(matchee_ast, makeIdentifierName("nodetype")),
                     js.Literal(Node.makeStr("SYMBOL", condsym))),
-        js.StrictEq(js.Dot(matchee_ast, makeIdentifierName("val")), 
+        js.StrictEq(js.Dot(matchee_ast, makeIdentifierName("val")),
                     js.Literal(Node.makeStr(condsym.val, condsym))));
 
   } else if (Node.isArrayWithHead(cond_node, "<<quasiquote>>")) {
@@ -902,7 +902,7 @@ function make_matcher(self, matchee_ast, cond_node, env) {
   var structure_cond_asts = [], binder_asts = [], additional_cond_asts = [];
   make_matcher_x(self, matchee_ast, cond_node, env,
                  structure_cond_asts, binder_asts,
-                 additional_cond_asts, 0); 
+                 additional_cond_asts, 0);
 
   if (additional_cond_asts.length == 0) {
     return {
@@ -1151,7 +1151,7 @@ function generate_argument_bind(self, args, env) {
       var math_max_ast = js.Dot(makeIdentifier("Math"), makeIdentifierName("max"));
       var set_i_ast =
             js.Assign(i_ast,
-                      js.Call(math_max_ast, 
+                      js.Call(math_max_ast,
                               js.Arguments(js.Sub(arglen_ast, speclen - (dots_idx + 1)),
                                            dots_idx)));
       ret_ast.append(js.IfStatement(js.Gt(arglen_ast, dots_idx),
@@ -1329,9 +1329,9 @@ special_form("try",
   [
     "try",
     o("body"),
-    o("catches", [0, N], 
+    o("catches", [0, N],
        [ o("head", "catch"), o("cond"), o("body") ]),
-    o([0, 1], 
+    o([0, 1],
        [ "finally", o("finally") ])
   ],
   function (arg, node, env, context) {
@@ -1482,17 +1482,17 @@ special_form(["for", "for-own"],
       var inrhs_pe = this.generate_(incond.rhs, env, rhs_context);
       var body_pe = this.generate_(arg.body, env, Ignore(env));
 
-      if (util.stringIsUPPERCASE(incond.lhs.key.val)) 
+      if (util.stringIsUPPERCASE(incond.lhs.key.val))
         this.onerror_(CompilerMessage.Warning.forInByConstant(incond.lhs.key));
       env.registerVariable(incond.lhs.key, false);
 
       var val_ast;
       if (incond.lhs.val) {
-        if (util.stringIsUPPERCASE(incond.lhs.val.val)) 
+        if (util.stringIsUPPERCASE(incond.lhs.val.val))
           this.onerror_(CompilerMessage.Warning.forInByConstant(incond.lhs.val));
         env.registerVariable(incond.lhs.val, false);
         // `(,val = ,rhs[,key])
-        val_ast = js.Assign(js.Identifier(incond.lhs.val), 
+        val_ast = js.Assign(js.Identifier(incond.lhs.val),
                             js.Bracket(inrhs_pe[1], js.Identifier(incond.lhs.key)));
       }
 
@@ -1507,7 +1507,7 @@ special_form(["for", "for-own"],
                                     js.Arguments(inrhs_pe[1], js.Identifier(incond.lhs.key)))),
                      js.ContinueStatement());
       }
-      var for_ast = js.ForInStatement(js.Identifier(incond.lhs.key), inrhs_pe[1], 
+      var for_ast = js.ForInStatement(js.Identifier(incond.lhs.key), inrhs_pe[1],
                                       js.Statements(own_ast, val_ast, body_pe[0], body_pe[1]));
       if (arg.label)
         for_ast = js.LabelledStatement(js.Identifier(arg.label.label), for_ast);
@@ -1603,7 +1603,7 @@ function generate_logical(operator, ascond, self, lhs_pe, rhs_pe, env, context) 
     dist_rhs_pe = dist_context.apply(rhs_pe);
 
     return context.apply([
-      js.Statements(lhs_pe[0], 
+      js.Statements(lhs_pe[0],
                     js.IfStatement(ascond(lhs_pe[1]),
                                    js.Statements(dist_lhs_pe[0], dist_lhs_pe[1]),
                                    js.Statements(dist_rhs_pe[0], dist_rhs_pe[1]))),
@@ -1821,7 +1821,7 @@ module.exports = klass({
       default:
         var err = CompilerMessage.Error.unexpected(node, "value nodetype:" + node.nodetype, "CompileError",
                                                    "A COMPILER BUG...? The given value is: " + JSON.stringify(node));
-        this.onerror_(err); 
+        this.onerror_(err);
         return context.apply([undefined, undefined]);
       }
     } catch (e) {

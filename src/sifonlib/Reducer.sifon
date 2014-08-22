@@ -6,27 +6,27 @@
 ## meta ->
 ##   node-matcher .= #(specs...) ->
 ##     (specs.length .> 0) .or throw "array-matcher requires arguments"
-##   
+##
 ##     alts .= specs.map #match ->
-## 
+##
 ##       (typeof "string") ->
-##         #(sym) -> 
+##         #(sym) ->
 ##           ``((,sym.nodetype .== "SYMBOL") .&& (,sym.val .== ,,spec))
-## 
+##
 ##       ['<<array>>, ...] ->
-##         
+##
 ##       [(typeof "string") name, [min, max], ...child_specs] ->
 ##       [(typeof "string") name, ...child_specs] ->
 ##       [[min, max], ...child_specs] ->
-##       
+##
 ##       typefunc ->
 ##         typefunc
-## 
+##
 ##     #(sym) ->
 ##       codes .= alts.map #(a) -> a sym
 ##       `|> or ,@codes
-## 
-## Symbol .= 
+##
+## Symbol .=
 ##   #(sym) ->
 ##     `|> ,sym.nodetype .== "SYMBOL"
 
@@ -99,15 +99,15 @@ constant_propagation .= #(op, handler) ->
    #(arg, node, env) ->
      arg.head .= node.[0]
      sevs .= arg.values.map #(a) -> static_evaluate_x a env
- 
+
      return (Value node)
        *if ((sevs.[0].type .== "unknown") .or (sevs.[1].type .== "unknown"))
- 
+
      ret .= [arg.head]
      gaveup .= false
      head .= sevs.shift ()
      reduced .= sevs.reduce (#(acc, sev) ->
-       case 
+       case
          gaveup ->
            ret.push sev.node
          (sev.type .== "unknown") ->
@@ -120,7 +120,7 @@ constant_propagation .= #(op, handler) ->
             -> ret.push acc sev.node
                gaveup .= true
      ) head.val
- 
+
      if gaveup
       -> Value (Node.makeArray ret node)
       -> Value reduced (typeof reduced) reduced
@@ -132,14 +132,14 @@ constant_propagation "/" #(a, b) -> / a b
 
 
 ## NOTE: Rejected Optimization
-## 
+##
 ##  - Double Negation Elimination (!!x => x)
 ##      Since `!!x === x` is not true when `typeof x !== "boolean"`.
 ##      In fact, `!!x` is used to convert the type of `x` to boolean.
 ##      `Boolean(x)`, which performs same type conversion, can be used
 ##      instead of `!!x` but it's hard for JavaScript engine to optimize
 ##      `Boolean(x)` because the value `Boolean` may be altered.
-## 
+##
 
 static_evaluation
   [
@@ -165,7 +165,7 @@ static_evaluation
         sev .= static_evaluate_x neg.general env
         console.log (JSON.stringify sev)
         if (sev.type .== "unknown")
-          -> Value node 
+          -> Value node
           -> Value `(not ,(sev.node)) "boolean" (not sev.val)
 
 ## static_evaluation
@@ -175,7 +175,7 @@ static_evaluation
 ##   ]
 ##   #(arg, node, env) ->
 ##     sev .= static_evaluate_x arg.value env
-## 
+##
 ##     if (sev.type .== "unknown")
 ##       -> Value node
 ##       -> Value (not sev.val) "boolean" (not sev.val)
@@ -209,11 +209,11 @@ module.exports .= static_evaluate
 ## (not (!= x b))
 
 ## ((x === null) ? "null" : typeof x) === "string"
-## 
-## 
-## 
+##
+##
+##
 ## reduce "="
-## 
+##
 ## reduce "="
 ##   [
 ##     "="
@@ -228,10 +228,10 @@ module.exports .= static_evaluate
 ##        o "general"
 ##   ]
 ##   foo #(arg, node, env, context) ->
-## 
+##
 ##     t = [y, x]
 ##     [x, y] .= [y, x]
-## 
+##
 ##     t = x0 y0
 ##     y1 = t 0
 ##     x1 = t 1

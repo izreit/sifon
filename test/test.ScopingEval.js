@@ -22,7 +22,7 @@ describe("ScopingEval", function () {
   });
 
   it("should handle a variable in an injected scope", function () {
-    expect(se2.eval("z")).equals(218); 
+    expect(se2.eval("z")).equals(218);
   });
 
   it("should refer the inner `y`", function () {

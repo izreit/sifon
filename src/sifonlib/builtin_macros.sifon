@@ -35,14 +35,14 @@ builtin-macro (*when) (expr whenpart) ->
   `-> ,sym .= ,expr
       macro-scope ->
         symbol-macro %it -> ',sym
-        if ,cond ,body ,sym 
+        if ,cond ,body ,sym
 
 builtin-macro (*catch) (trypart catchpart) ->
   match trypart
-   ['try, ..._, ['finally, ...]] -> 
+   ['try, ..._, ['finally, ...]] ->
      `|> try ,trypart
           catch ,@catchpart
-   ['try, ...] -> 
+   ['try, ...] ->
      `|> ,@trypart (catch ,@catchpart)
    ['(*catch), ...] ->
      sym .= @gensym ()
@@ -55,10 +55,10 @@ builtin-macro (*catch) (trypart catchpart) ->
 
 builtin-macro (*finally) (trypart finallypart) ->
   match trypart
-   ['try, ..._, ['finally, ...]] -> 
+   ['try, ..._, ['finally, ...]] ->
      `|> try ,@trypart
           finally ,finallypart
-   ['try, ...] -> 
+   ['try, ...] ->
      `|> ,@trypart (finally ,finallypart)
    ['(*catch), ...] ->
      sym .= @gensym ()
@@ -146,38 +146,38 @@ builtin-macro reap (tag, block) ->
 
 
 ## List.prototype
-## 
+##
 ## class Foo ->
 ##   foo .= zoo
 ##   value .= zoo
 ##   constructor ()
 ##     value
-## 
+##
 ## buitin-macro class (name, def_block) ->
 ##  `|> meta-do ->
 ##        macro initialize .=
 ##        do ,def_block
 
 ## builtin-macro is-a (v, ...types) ->
-##   (types.length .> 0) .or throw "The macro is-a requires two or more argument." 
+##   (types.length .> 0) .or throw "The macro is-a requires two or more argument."
 
 ## builtin-macro math-expr (...expr) ->
-## 
+##
 ##   macro is-one-of (a, vs) ->
 ##     ['<<tuple>>, vs] .= vs
 ##     tests .= vs.map #(v) -> `(,a .== ,v)
 ##     `|> or ,@tests
-## 
+##
 ##   idx .= 0
 ##   peek .= # -> expr.[idx]
 ##   read .= # -> expr.[idx *++]
-## 
+##
 ##   can_primary .= #->
 ##     next .= peek ()
 ##     next .is-one-of ('void
 ##      "SYMBOL" ->
 ##        value foo + y + 100 * sin x ** 2 % foo.value z 1 100
-## 
+##
 ##   primary .= # ->
 ##     head .= peek ()
 ##     if (head.nodetype .== "ARRAY")
@@ -185,12 +185,12 @@ builtin-macro reap (tag, block) ->
 ##          -> read ()
 ##          -> expression ()
 ##      -> read ()
-## 
+##
 ##   member .= # ->
 ##     next .= peek ()
 ##     if (next .== 'new) ->
-##     head .= primary () 
-## 
+##     head .= primary ()
+##
 ##   postfix .= # ->
 ##     m .= member ()
 ##     match (peek ())
@@ -201,27 +201,27 @@ builtin-macro reap (tag, block) ->
 ##        read ()
 ##        `(<<post-->> ,m)
 ##      -> m
-## 
+##
 ##   unary .= # ->
 ##     op .= peek ()
 ##     if (op .is-one-of ('delete, 'void, 'typeof, '++, '--, '+, '-, '~, '!))
 ##       -> `(,(read ()) ,(unary ()))
 ##       -> postfix ()
-## 
+##
 ##   multiplicative .= # ->
 ##     lhs .= unary ()
 ##     op .= peek ()
 ##     if (op .is-one-of ('*, '/, '%))
 ##       -> `(,(read ()) ,lhs ,(unary ()))
 ##       -> lhs
-## 
+##
 ##   additive .= # ->
 ##     lhs .= multiplicative ()
 ##     op .= peek ()
 ##     if (op .is-one-of ('+, '-))
 ##       -> `(,(read ()) ,lhs ,(multiplicative ()))
 ##       -> lhs
-## 
+##
 
 module.exports .= {
   builtin_macros

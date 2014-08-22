@@ -8,7 +8,7 @@ var devel = {
 
   dthrow: function (e) {
     var filter = devel.debugger_filter;
-    if (!filter || filter("dthrow", e)) 
+    if (!filter || filter("dthrow", e))
       debugger;
     throw e;
   },

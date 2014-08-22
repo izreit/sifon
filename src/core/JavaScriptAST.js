@@ -175,7 +175,7 @@ var PRECEDENCE = {
   Shift: 6,
   Relational: 7,
   Equality: 8,
-  BitwiseAND: 9, 
+  BitwiseAND: 9,
   BitwiseXOR: 10,
   BitwiseOR: 11,
   LogicalAND: 12,
@@ -512,7 +512,7 @@ node("Arguments", [p.Assignment, "..."], joins(", "));
 
 expr("PostInc", p.Postfix, [p.Member], "###++");
 expr("PostDec", p.Postfix, [p.Member], "###--");
-  
+
 expr("Delete", p.Unary, [p.Unary], "delete ###");
 expr("Void", p.Unary, [p.Unary], "void ###");
 expr("Typeof", p.Unary, [p.Unary], "typeof ###");
@@ -533,29 +533,29 @@ expr("Sub", p.Additive, [p.Additive, p.Multiplicative], "### - ###");
 expr("LSfhit", p.Shift, [p.Shift, p.Additive], "### << ###");
 expr("SRShift", p.Shift, [p.Shift, p.Additive], "### >> ###");
 expr("URShift", p.Shift, [p.Shift, p.Additive], "### >>> ###");
-  
+
 expr("Lt", p.Relational, [p.Relational, p.Shift], "### < ###");
 expr("Gt", p.Relational, [p.Relational, p.Shift], "### > ###");
 expr("Le", p.Relational, [p.Relational, p.Shift], "### <= ###");
 expr("Ge", p.Relational, [p.Relational, p.Shift], "### >= ###");
 expr("Instanceof", p.Relational, [p.Relational, p.Shift], "### instanceof ###");
-  
+
 expr("In", p.In, [p.Relational, p.Shift], "### in ###");
-  
+
 expr("Eq", p.Equality, [p.Equality, p.Relational], "### == ###");
 expr("Ne", p.Equality, [p.Equality, p.Relational], "### != ###");
 expr("StrictEq", p.Equality, [p.Equality, p.Relational], "### === ###");
 expr("StrictNe", p.Equality, [p.Equality, p.Relational], "### !== ###");
-  
+
 expr("BitAnd", p.BitwiseAND, [p.BitwiseAND, p.Equality], "### & ###");
 expr("BitXor", p.BitwiseXOR, [p.BitwiseXOR, p.BitwiseAND], "### ^ ###");
 expr("BitOr", p.BitwiseOR,  [p.BitwiseOR, p.BitwiseXOR], "### | ###");
-  
+
 expr("And", p.LogicalAND, [p.LogicalAND, p.BitwiseOR], "### && ###");
 expr("Or", p.LogicalOR,  [p.LogicalOR, p.LogicalAND], "### || ###");
-  
+
 expr("Conditional", p.Conditional, [p.LogicalOR, p.Assignment, p.Assignment], "### ? ### : ###");
-  
+
 expr("Assign", p.Assignment, [p.Member, p.Assignment], "### = ###");
 expr("AddAssign", p.Assignment, [p.Member, p.Assignment], "### += ###");
 expr("SubAssign", p.Assignment, [p.Member, p.Assignment], "### -= ###");
@@ -568,7 +568,7 @@ expr("URShiftAssign", p.Assignment, [p.Member, p.Assignment], "### >>>= ###");
 expr("BitAndAssign", p.Assignment, [p.Member, p.Assignment], "### &= ###");
 expr("BitXorAssign", p.Assignment, [p.Member, p.Assignment], "### ^= ###");
 expr("BitOrAssign", p.Assignment, [p.Member, p.Assignment], "### |= ###");
-  
+
 expr("Comma", p.Expression, [p.Expression, p.Assignment], "###, ###");
 
 // Expression ('multiple' versions of binary operators)
@@ -747,7 +747,7 @@ node_with_base("ContinueStatement",
               : "continue;";
   }
 );
-  
+
 // BreakStatement
 node_with_base("BreakStatement",
   "JumpStatement",
@@ -823,7 +823,7 @@ stmt("TryStatement",
 );
 
 stmt("TryCatchStatement", ["Block", "Catch"], "try ### ###");
-stmt("TryFinallyStatement", ["Block", "Finally"], "try ### ###"); 
+stmt("TryFinallyStatement", ["Block", "Finally"], "try ### ###");
 stmt("TryCatchFinallyStatement", ["Block", "Catch", "Finally"], "try ### ### ###");
 
 node("Catch", ["Identifier", "Block"], "catch (###) ###");

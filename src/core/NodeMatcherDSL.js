@@ -243,7 +243,7 @@ function makeMatcher(specs) {
         r_from = matched.next;
       }
 
-      // Consumed some nodes twice. Seems an ambiguous spec given... 
+      // Consumed some nodes twice. Seems an ambiguous spec given...
       if (from > r_from + 1) {
         devel.dthrow("NodeMatcherDSL.makeMatcher(): consumed a node twice. An ambiguous spec?");
         return failure((si > 0) && serious_name, (node[r_from] || node));

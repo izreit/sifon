@@ -277,7 +277,7 @@ var MacroEvaluator = klass({
           this.onerror_(cerr);
           throw e;
         }
-      } 
+      }
       break;
     }
 
@@ -307,7 +307,7 @@ var MacroEvaluator = klass({
           this.onerror_(cerr);
           throw e;
         }
-      } 
+      }
       break;
     }
 
@@ -348,7 +348,7 @@ var MacroEvaluator = klass({
 
     if (!node || !Node.isType(node, "ARRAY") || (node.length === 0))
       return node;
-  
+
     var head = node[0];
     if (Node.isType(head, "SYMBOL") && head.val in macro_special_form_handlers) {
       return macro_special_form_handlers[head.val].call(this, node, env, comp);

@@ -128,7 +128,7 @@ describe("NodeMatcherDSL", function () {
 		  serious: "t",
 		  node: input(),
 		});
-	
+
 	fail(capt, m, "(f 1 2 3)", [
 			sym("f"),
 			1,
@@ -139,7 +139,7 @@ describe("NodeMatcherDSL", function () {
 		  serious: false,
 		  node: input(0),
 		});
-	
+
 
 	capt = "fun";
 	m = makeMatcher([
@@ -165,7 +165,7 @@ describe("NodeMatcherDSL", function () {
 	test(capt, m, "(fun s (<<seq>> (+= s 3) (* s s)) (catch (e (log e))))", [
 		  sym("fun"),
 			sym("s"),
-		  [sym("<<seq>>"), 
+		  [sym("<<seq>>"),
 			  [sym("+="), sym("s"), 3],
 				[sym("*"), sym("s"), sym("s")]],
 			[sym("catch"),

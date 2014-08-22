@@ -224,7 +224,7 @@ describe("Parser", function () {
      [sym("#"),
       [sym("->"),
        [dot(sym("array"), sym("foo")),
-        [sym("#"), 
+        [sym("#"),
          sym("v"),
          [sym("->"),
           [sym("v"), 2]]],
@@ -448,7 +448,7 @@ describe("Parser", function () {
   ).willBe(
     [sym("->"),
      [sym("value"),
-      [sym("->"), 
+      [sym("->"),
        sym("zoo")]],
      [sym("z"), "str"]]
   );

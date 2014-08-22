@@ -466,13 +466,13 @@ describe("Compiler", function () {
     'x .= 17',
     'x .|= 3'
   ).willBe(17 | 3);
-  
+
   // operators: ^=
   evaluating(
     'x .= 17',
     'x .^= 3'
   ).willBe(17 ^ 3);
-  
+
   // operators: &&=
   evaluating(
     'x .= 17',
