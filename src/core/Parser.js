@@ -102,7 +102,8 @@ var Parser = klass({
     var dic = util.dictionarize;
     var PERMIT_SHALLOW_INDENT      = dic(["(", "[", "{", "->"]);
     var DONT_PERMIT_SHALLOW_BEFORE = dic([")", "]", "}"]);
-    var IMPLICIT_OPEN_AFTER        = dic(["INDENT", "|>", "(", "[", "{", ",", "->", ":"]);
+    var IMPLICIT_OPEN_AFTER        = dic(["INDENT", "|>", "(", "[", "{", ",", "->", ":",
+                                          "ISTR_HEAD", "ISTR_PART"]);
     var IMPLICIT_OPEN_BEFORE       = dic(["->", "HASH_IDENTIFIER"]);
     var DONT_OPEN_BEFORE           = dic([
 
@@ -111,6 +112,8 @@ var Parser = klass({
       "HASH_IDENTIFIER", // ditto.
       ")", "]", "}",     // inserts IMPLICIT_CLOSE before itself
       ",", "EOF",        // ditto.
+      "ISTR_PART",       // ditto.
+      "ISTR_TAIL",       // ditto.
 
       // Exceptional Case: QUALIFIER. They are always parsed as a non-head part
       // of implicit-array, never be a head (except written in parentheses (i.e. (*foo)).
@@ -183,6 +186,7 @@ var Parser = klass({
         // Just ignore: all we need to do for "|>", done in rawLex_().
         continue;
       case ")": case "]": case "}": case "EOF": //case ":":
+      case "ISTR_PART": case "ISTR_TAIL":
         if (this.yet_unclosed_.implicit) {
           this.unlex_(token);
           return Token.make("IMPLICIT_CLOSE", undefined, token.line, token.col);
@@ -258,7 +262,7 @@ var Parser = klass({
     this.yet_unclosed_stack_.push(this.yet_unclosed_);
     var t = {};
     t.col = col;
-    t.implicit = (type !== "(" && type !== "[" && type !== "{");
+    t.implicit = (type !== "(" && type !== "[" && type !== "{" && type !== "ISTR_HEAD");
     t.type = type;  // Never used. Just a debug info.
     this.yet_unclosed_ = t;
     if (!this.yet_unclosed_.implicit) ++this.explicit_nest_count;
@@ -315,6 +319,8 @@ var Parser = klass({
         return Node.symbolFromToken(t);
       case "NUM": case "STR":
         return Node.fromToken(t);
+      case "ISTR_HEAD":
+        return this.parseInterpolatedString_(t);
       case "(":
         return this.parseTupleOrValue_(t);
       case "[":
@@ -473,6 +479,31 @@ var Parser = klass({
   },
 
 
+  parseInterpolatedString_: function (t) {
+    var found_tail = false;
+    var node;
+    var t;
+
+    debugger;
+    this.openArray_(this.peek_().col, t.toktype);
+    node = Node.makeStrFromLiteralized(t.val, t);
+    var nodes = [Node.makeSymbol("+", t), node];
+    do {
+      node = this.parseValue_();
+      if (node === undefined)
+        return this.onerror_(this.makeError_('An interpolated string is not terminated.'));
+      nodes.push(node);
+      if (t = this.lexIf_("ISTR_PART", "ISTR_TAIL")) {
+        found_tail = (t.toktype === "ISTR_TAIL");
+        nodes.push(Node.makeStrFromLiteralized(t.val, t));
+      }
+    } while (!found_tail);
+
+    this.closeArray_();
+
+    return Node.makeArray(nodes, t);
+  },
+
   parseTupleOrValue_: function (t) {
     // precondition: t.toktype === "("
     var token, close_token;
@@ -533,7 +564,6 @@ var Parser = klass({
       this.squashArrayHeadColumns_(t.squash_array.col);
 
     nodes = [];
-    debugger;
     while (!(close_token = this.lexIf_("]"))) {
       if ((node = this.parseValue_()) === undefined) {
         this.onerror_(this.makeError_());

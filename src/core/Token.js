@@ -18,6 +18,10 @@ var Token = klass({
     makeUnquote: function (l, c) { return new Token("UNQUOTE", undefined, l, c) },
     makeUnquoteSplicing: function (l, c) { return new Token("UNQUOTE_S", undefined, l, c) },
     makePreservedComment: function (v, l, c) { return new Token("PCOMMENT", v, l, c); },
+
+    makeInterpolatedStrHead: function (v, l, c) { return new Token("ISTR_HEAD", v, l, c) },
+    makeInterpolatedStrPart: function (v, l, c) { return new Token("ISTR_PART", v, l, c) },
+    makeInterpolatedStrTail: function (v, l, c) { return new Token("ISTR_TAIL", v, l, c) },
   },
 
   initialize: function (t, v, l, c, nt) {

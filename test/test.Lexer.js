@@ -38,13 +38,16 @@ function compareToken(a, b) {
 // Helpers to describe test data.  The return values
 // of the following functions can be passed to asToken().
 //
-var id      = function (name)    { return { identifier: name }; };
-var hash_id = function (name)    { return { hash_identifier: name } };
-var indent  = function (indent)  { return { indent: indent }; };
-var sym     = function (name)    { return { symbol: name }; };
-var op      = function (name)    { return { operator: name }; };
-var qual    = function (name)    { return { qualifier: name }; };
-var comment = function (comment) { return { comment: comment }; };
+var id       = function (name)    { return { identifier: name }; };
+var hash_id  = function (name)    { return { hash_identifier: name } };
+var indent   = function (indent)  { return { indent: indent }; };
+var sym      = function (name)    { return { symbol: name }; };
+var op       = function (name)    { return { operator: name }; };
+var qual     = function (name)    { return { qualifier: name }; };
+var comment  = function (comment) { return { comment: comment }; };
+var istrhead = function (str)     { return { istrhead: str }; };
+var istrpart = function (str)     { return { istrpart: str }; };
+var istrtail = function (str)     { return { istrtail: str }; };
 var eof = { eof: 1 };
 var unquote = { unquote: 1 };
 var unquote_s = { unquote_s: 1 };
@@ -90,6 +93,12 @@ function asToken(v) {
       return Token.make("QUALIFIER", v.qualifier, line, col);
     } else if (v.comment !== undefined) {
       return Token.makePreservedComment(v.comment, line, col);
+    } else if (v.istrhead !== undefined) {
+      return Token.makeInterpolatedStrHead(v.istrhead, line, col);
+    } else if (v.istrpart !== undefined) {
+      return Token.makeInterpolatedStrPart(v.istrpart, line, col);
+    } else if (v.istrtail !== undefined) {
+      return Token.makeInterpolatedStrTail(v.istrtail, line, col);
     } else {
       throw "asToken: Unknown type " + JSON.stringify(v);
     }
@@ -176,147 +185,189 @@ function lexing(src__) {
 
 describe("Lexer", function () {
 
-  lexing("3").gets(3);
-  lexing("-42.032").gets(-42.032);
-  lexing("0xfeff").gets(0xfeff);
-  lexing("+1e100").gets(1e100);
-  lexing('"3foo"').gets("3foo");
-  lexing('"3\\"foo"').gets('3\\"foo');
-  lexing("true").gets(id("true"));
-  lexing("false").gets(id("false"));
-  lexing("foo").gets(id("foo"));
-  lexing("call-with-current-continuation").gets(id("call-with-current-continuation"));
-  lexing("call/cc").gets(id("call/cc"));
-  lexing("...rest-params").gets(id("...rest-params"));
-  lexing('[]').gets(sym("["), sym("]"));
+  describe("Basic", function () {
+    lexing("3").gets(3);
+    lexing("-42.032").gets(-42.032);
+    lexing("0xfeff").gets(0xfeff);
+    lexing("+1e100").gets(1e100);
+    lexing('"3foo"').gets("3foo");
+    lexing('"3\\"foo"').gets('3\\"foo');
+    lexing("true").gets(id("true"));
+    lexing("false").gets(id("false"));
+    lexing("foo").gets(id("foo"));
+    lexing("call-with-current-continuation").gets(id("call-with-current-continuation"));
+    lexing("call/cc").gets(id("call/cc"));
+    lexing("...rest-params").gets(id("...rest-params"));
+    lexing('[]').gets(sym("["), sym("]"));
+  });
 
-  lexing("foo: bar 100 zoo").gets(
-    id("foo"), sym(":"), id("bar"), 100, id("zoo")
-  );
+  describe("Non-trivial", function () {
+    lexing("foo: bar 100 zoo").gets(
+      id("foo"), sym(":"), id("bar"), 100, id("zoo")
+    );
 
-  lexing("foo: (bar, 100) ...zoo").gets(
-    id("foo"), sym(":"), sym("("), id("bar"), sym(","), 100, sym(")"), id("...zoo")
-  );
+    lexing("foo: (bar, 100) ...zoo").gets(
+      id("foo"), sym(":"), sym("("), id("bar"), sym(","), 100, sym(")"), id("...zoo")
+    );
 
-  lexing(
-    'foo:',
-    '  bar, "a string"'
-  ).gets(
-               id("foo"), sym(":"),
-    indent(2), id("bar"), sym(","), "a string"
-  );
+    lexing(
+      'foo:',
+      '  bar, "a string"'
+    ).gets(
+                 id("foo"), sym(":"),
+      indent(2), id("bar"), sym(","), "a string"
+    );
 
-  lexing(
-    'x .=  #(a b) ->',
-    '  s .= (+ a "a string" b)',
-    '  `(foo ,s ,@zoo)'
-  ).gets(
-               id("x"), op("="),
-               hash_id("#"), sym("("), id("a"), id("b"), sym(")"), sym("->"),
-    indent(2), id("s"), op("="), sym("("),
-               id("+"), id("a"), "a string", id("b"), sym(")"),
-    indent(2), sym("`"), sym("("), id("foo"), 
-               unquote, id("s"), unquote_s, id("zoo"), sym(")")
-  );
+    lexing(
+      'x .=  #(a b) ->',
+      '  s .= (+ a "a string" b)',
+      '  `(foo ,s ,@zoo)'
+    ).gets(
+                 id("x"), op("="),
+                 hash_id("#"), sym("("), id("a"), id("b"), sym(")"), sym("->"),
+      indent(2), id("s"), op("="), sym("("),
+                 id("+"), id("a"), "a string", id("b"), sym(")"),
+      indent(2), sym("`"), sym("("), id("foo"),
+                 unquote, id("s"), unquote_s, id("zoo"), sym(")")
+    );
 
-  lexing(
-    '@foo'
-  ).gets(
-    sym("@"), id("foo")
-  );
+    lexing(
+      '@foo'
+    ).gets(
+      sym("@"), id("foo")
+    );
 
-  lexing(
-    '#* -> a'
-  ).gets(
-    hash_id("#*"), sym("->"), id("a")
-  );
+    lexing(
+      '#* -> a'
+    ).gets(
+      hash_id("#*"), sym("->"), id("a")
+    );
 
-  lexing('( 1,)').gets(
-    sym("("), 1, sym(","), sym(")")
-  );
+    lexing('"foo" "bar"').gets("foo", "bar");
 
-  lexing('( 1 ,)').gets(
-    sym("("), 1, unquote, sym(")")
-  ).noWarning();
+    lexing(
+      '{  "@v+": v }: { type: "HOGE"  }'
+    ).gets(
+      sym("{"), "@v+", sym(":"), id("v"), sym("}"),
+      sym(":"),
+      sym("{"), id("type"), sym(":"), "HOGE", sym("}")
+    )
+  });
 
-  lexing('(, 1)').gets(
-    sym("("), unquote, 1, sym(")")
-  ).warnsAt(1, 4);
+  describe("Commas and Unquotes", function () {
+    lexing('( 1,)').gets(
+      sym("("), 1, sym(","), sym(")")
+    );
 
-  lexing('(,1)').gets(
-    sym("("), unquote, 1, sym(")")
-  ).noWarning();
+    lexing('( 1 ,)').gets(
+      sym("("), 1, unquote, sym(")")
+    ).noWarning();
 
-  lexing('(,@1)').gets(
-    sym("("), unquote_s, 1, sym(")")
-  ).noWarning();
+    lexing('(, 1)').gets(
+      sym("("), unquote, 1, sym(")")
+    ).warnsAt(1, 4);
 
-  lexing('[, 1, ,]').gets(
-    sym("["), unquote, 1, sym(","), unquote, sym("]")
-  ).warnsAt(1, 4);
+    lexing('(,1)').gets(
+      sym("("), unquote, 1, sym(")")
+    ).noWarning();
 
-  lexing('[,@ 1, ,@]').gets(
-    sym("["), unquote_s, 1, sym(","), unquote_s, sym("]")
-  ).warnsAt(1, 5);
+    lexing('(,@1)').gets(
+      sym("("), unquote_s, 1, sym(")")
+    ).noWarning();
 
-  lexing('"foo" "bar"').gets("foo", "bar");
+    lexing('[, 1, ,]').gets(
+      sym("["), unquote, 1, sym(","), unquote, sym("]")
+    ).warnsAt(1, 4);
 
-  lexing(
-    '{  "@v+": v }: { type: "HOGE"  }'
-  ).gets(
-    sym("{"), "@v+", sym(":"), id("v"), sym("}"),
-    sym(":"),
-    sym("{"), id("type"), sym(":"), "HOGE", sym("}")
-  )
+    lexing('[,@ 1, ,@]').gets(
+      sym("["), unquote_s, 1, sym(","), unquote_s, sym("]")
+    ).warnsAt(1, 5);
+  });
 
-  // regression ,',foo
+  describe("Regression: ,',foo", function () {
+    lexing(",',foo").gets(
+      unquote, sym("'"), unquote, id("foo")
+    );
 
-  lexing(",',foo").gets(
-    unquote, sym("'"), unquote, id("foo")
-  );
+    lexing(",@',@foo").gets(
+      unquote_s, sym("'"), unquote_s, id("foo")
+    );
 
-  lexing(",@',@foo").gets(
-    unquote_s, sym("'"), unquote_s, id("foo")
-  );
+    lexing(",',@foo").gets(
+      unquote, sym("'"), unquote_s, id("foo")
+    );
 
-  lexing(",',@foo").gets(
-    unquote, sym("'"), unquote_s, id("foo")
-  );
+    lexing(",@',foo").gets(
+      unquote_s, sym("'"), unquote, id("foo")
+    );
+  });
 
-  lexing(",@',foo").gets(
-    unquote_s, sym("'"), unquote, id("foo")
-  );
+  describe("Warning: CONFUSING_ARRAY_LITERAL", function () {
+    lexing(
+      'foo[bar]'
+    ).gets(
+      id("foo"), sym("["), id("bar"), sym("]")
+    ).warnsAt(1, 4);
 
-  // Warning: CONFUSING_ARRAY_LITERAL
+    lexing(
+      'foo [bar]'
+    ).gets(
+      id("foo"), sym("["), id("bar"), sym("]")
+    ).noWarning();
 
-  lexing(
-    'foo[bar]'
-  ).gets(
-    id("foo"), sym("["), id("bar"), sym("]")
-  ).warnsAt(1, 4);
+    lexing(
+      'foo.[bar]'
+    ).gets(
+      id("foo"), sym("."), sym("["), id("bar"), sym("]")
+    ).noWarning();
+  });
 
-  lexing(
-    'foo [bar]'
-  ).gets(
-    id("foo"), sym("["), id("bar"), sym("]")
-  ).noWarning();
+  describe("Warning: INDENT_INCLUDING_TAB", function () {
+    lexing(
+      'foo',
+      ' \t \t100'
+    ).warnsAt(2, 1)
+     .gets(
+                  id("foo"),
+      indent(10), 100
+    );
+  });
 
-  lexing(
-    'foo.[bar]'
-  ).gets(
-    id("foo"), sym("."), sym("["), id("bar"), sym("]")
-  ).noWarning();
+  describe("String Interpolation", function () {
+    lexing('#"foo bar zoo#aa"').gets("foo bar zoo#aa");
 
-  // Warning: INDENT_INCLUDING_TAB
+    lexing('#"#{"foo"}"').gets(
+      istrhead('""'), "foo", istrtail('""')
+    );
 
-  lexing(
-    'foo',
-    ' \t \t100'
-  ).warnsAt(2, 1)
-   .gets(
-               id("foo"),
-    indent(10), 100
-  );
+    lexing('#"aa {bb #{xx} cc}"').gets(
+      istrhead('"aa {bb "'), id("xx"), istrtail('" cc}"')
+    );
+
+    lexing('#"foo #{ 1 }dsa"').gets(
+      istrhead('"foo "'), 1, istrtail('"dsa"')
+    );
+
+    lexing('#"foo #{ foo 1 "sl" }dsa"').gets(
+      istrhead('"foo "'), id("foo"), 1,"sl", istrtail('"dsa"')
+    );
+
+    lexing('#"foo #{ foo 1 "sl" }dsa#{- x}"').gets(
+      istrhead('"foo "'),
+        id("foo"), 1,"sl",
+      istrpart('"dsa"'),
+        id("-"), id("x"),
+      istrtail('""')
+    );
+
+    lexing('#"foo #{ foo #"inside #{ x "foo" } endinside" }dsa"').gets(
+      istrhead('"foo "'),
+        id("foo"), istrhead('"inside "'),
+          id("x"), "foo",
+        istrtail('" endinside"'),
+      istrtail('"dsa"')
+    );
+  });
 
 });
 

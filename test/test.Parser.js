@@ -73,769 +73,862 @@ function parsing(src__) {
 
 describe("Parser", function () {
 
-  parsing("x").willBe(sym("x"));
-  parsing("-100").willBe(-100);
-  parsing('"str"').willBe("str");
-  parsing("x.y").willBe(dot(sym("x"), sym("y")));
+  describe("Basic", function () {
+    parsing("x").willBe(sym("x"));
+    parsing("-100").willBe(-100);
+    parsing('"str"').willBe("str");
+    parsing("x.y").willBe(dot(sym("x"), sym("y")));
+  });
 
-  parsing("foo #x bar").willBe(
-    [sym("foo"),
-     [sym("#x"),
-      sym("bar")]]
-  );
+  describe("Basic Sequence", function () {
+    parsing(
+      'x 100 z'
+    ).willBe(
+      [sym("x"), 100, sym("z")]
+    );
 
-  parsing("foo (#x) bar").willBe(
-    [sym("foo"),
-     sym("#x"),
-     sym("bar")]
-  );
+    parsing(
+      "if 'x |> if 'y 'z"
+    ).willBe(
+      [sym("if"),
+       quote(sym("x")),
+       [sym("if"), quote(sym("y")), quote(sym("z"))]]
+    );
 
-  parsing("(foo #x) bar").willBe(
-    [[sym("foo"),
-      sym("#x")],
-     sym("bar")]
-  );
+    parsing(
+      "if 'x |> if 'y",
+      "            'z"
+    ).willBe(
+      [sym("if"),
+       quote(sym("x")),
+       [sym("if"), quote(sym("y")), quote(sym("z"))]]
+    );
 
-  parsing("(*qual)").willBe(sym("*qual"));
-  parsing("(*qual foo)").failAt(1, 8);
+    parsing(
+      "if |> if 1",
+      "         2",
+      "      3"
+    ).willBe(
+      [sym("if"),
+       [sym("if"), 1, 2],
+       3]
+    );
 
-  parsing(
-    'x 100 z'
-  ).willBe(
-    [sym("x"), 100, sym("z")]
-  );
+    parsing(
+      "if 'x |> if 'y",
+      "         'z"
+    ).willBe(
+      [sym("if"),
+       quote(sym("x")),
+       [sym("if"), quote(sym("y"))],
+       quote(sym("z"))]
+    );
 
-  parsing(
-    "if 'x |> if 'y 'z"
-  ).willBe(
-    [sym("if"),
-     quote(sym("x")),
-     [sym("if"), quote(sym("y")), quote(sym("z"))]]
-  );
-
-  parsing(
-    "if 'x |> if 'y",
-    "            'z"
-  ).willBe(
-    [sym("if"),
-     quote(sym("x")),
-     [sym("if"), quote(sym("y")), quote(sym("z"))]]
-  );
-
-  parsing(
-    "if |> if 1",
-    "         2",
-    "      3"
-  ).willBe(
-    [sym("if"),
-     [sym("if"), 1, 2],
-     3]
-  );
-
-  parsing(
-    "if 'x |> if 'y",
-    "         'z"
-  ).willBe(
-    [sym("if"),
-     quote(sym("x")),
-     [sym("if"), quote(sym("y"))],
-     quote(sym("z"))]
-  );
-
-  parsing(
-    "-> foo 2"
-  ).willBe(
-    [sym("->"),
-     [sym("foo"), 2]]
-  );
-
-  parsing(
-    "foo # -> 2"
-  ).willBe(
-     [sym("foo"),
-      [sym("#"), [sym("->"), 2]]]
-  );
-
-  parsing(
-    "foo #* -> 2"
-  ).willBe(
-     [sym("foo"),
-      [sym("#*"), [sym("->"), 2]]]
-  );
-
-  parsing(
-    "foo #match -> 2"
-  ).willBe(
-     [sym("foo"),
-      [sym("#match"), [sym("->"), 2]]]
-  );
-
-  parsing(
-    "if 'x # -> foo 2"
-  ).willBe(
-    [sym("if"),
-     quote(sym("x")),
-     [sym("#"),
+    parsing(
+      "-> foo 2"
+    ).willBe(
       [sym("->"),
-       [sym("foo"), 2]]]]
-  );
+       [sym("foo"), 2]]
+    );
+  });
 
-  parsing(
-    "if 'x #* -> foo 2"
-  ).willBe(
-    [sym("if"),
-     quote(sym("x")),
-     [sym("#*"),
-      [sym("->"),
-       [sym("foo"), 2]]]]
-  );
+  describe("Hashed Identifiers", function () {
+    parsing("foo #x bar").willBe(
+      [sym("foo"),
+       [sym("#x"),
+        sym("bar")]]
+    );
 
-  parsing(
-    "if 'x (",
-    "  # -> foo 2",
-    ")"
-  ).willBe(
-    [sym("if"),
-     quote(sym("x")),
-     [sym("#"),
-      [sym("->"),
-       [sym("foo"), 2]]]]
-  );
+    parsing("foo (#x) bar").willBe(
+      [sym("foo"),
+       sym("#x"),
+       sym("bar")]
+    );
 
-  parsing(
-    "if 'x (# ->  ",
-    "  foo 2",
-    ")"
-  ).willBe(
-    [sym("if"),
-     quote(sym("x")),
-     [sym("#"),
-      [sym("->"),
-       [sym("foo"), 2]]]]
-  );
+    parsing("(foo #x) bar").willBe(
+      [[sym("foo"),
+        sym("#x")],
+       sym("bar")]
+    );
 
-  parsing(
-    "if 'x (# -> array.foo (# v ->",
-    "  v 2",
-    ") 'x)"
-  ).willBe(
-    [sym("if"),
-     quote(sym("x")),
-     [sym("#"),
-      [sym("->"),
-       [dot(sym("array"), sym("foo")),
-        [sym("#"),
-         sym("v"),
-         [sym("->"),
-          [sym("v"), 2]]],
-        quote(sym("x"))]]]]
-  );
+    parsing(
+      "foo # -> 2"
+    ).willBe(
+       [sym("foo"),
+        [sym("#"), [sym("->"), 2]]]
+    );
 
-  parsing(
-    "[ bar: y, foo: 100 ]"
-  ).willBe(
-    [sym("<<array>>"),
-     [sym(":"), sym("bar"), sym("y")],
-     [sym(":"), sym("foo"), 100]]
-  );
+    parsing(
+      "foo #* -> 2"
+    ).willBe(
+       [sym("foo"),
+        [sym("#*"), [sym("->"), 2]]]
+    );
 
-  parsing(
-    "{ bar: y, foo: 100 }"
-  ).willBe(
-    [sym("<<object>>"),
-     [sym(":"), sym("bar"), sym("y")],
-     [sym(":"), sym("foo"), 100]]
-  );
+    parsing(
+      "foo #match -> 2"
+    ).willBe(
+       [sym("foo"),
+        [sym("#match"), [sym("->"), 2]]]
+    );
 
-  parsing(
-    "{ o: o, foo: foo } .= object"
-  ).willBe(
-    [sym("="),
-     [sym("<<object>>"),
-      [sym(":"), sym("o"), sym("o")],
-      [sym(":"), sym("foo"), sym("foo")]],
-     sym("object")]
-  );
+    parsing(
+      "if 'x # -> foo 2"
+    ).willBe(
+      [sym("if"),
+       quote(sym("x")),
+       [sym("#"),
+        [sym("->"),
+         [sym("foo"), 2]]]]
+    );
 
-  parsing(
-    "[ foo: 100, ]"
-  ).willBe(
-    [sym("<<array>>"),
-     [sym(":"), sym("foo"), 100]]
-  );
+    parsing(
+      "if 'x #* -> foo 2"
+    ).willBe(
+      [sym("if"),
+       quote(sym("x")),
+       [sym("#*"),
+        [sym("->"),
+         [sym("foo"), 2]]]]
+    );
 
-  parsing(
-    "{ foo: 100, }"
-  ).willBe(
-    [sym("<<object>>"),
-     [sym(":"), sym("foo"), 100]]
-  );
+    parsing(
+      "if 'x (",
+      "  # -> foo 2",
+      ")"
+    ).willBe(
+      [sym("if"),
+       quote(sym("x")),
+       [sym("#"),
+        [sym("->"),
+         [sym("foo"), 2]]]]
+    );
 
-  parsing(
-    '[ "@v+": 100, ]'
-  ).willBe(
-    [sym("<<array>>"),
-     [sym(":"), "@v+", 100]]
-  );
+    parsing(
+      "if 'x (# ->  ",
+      "  foo 2",
+      ")"
+    ).willBe(
+      [sym("if"),
+       quote(sym("x")),
+       [sym("#"),
+        [sym("->"),
+         [sym("foo"), 2]]]]
+    );
 
-  parsing(
-    '{ type: t, "@v+": v, d: false}'
-  ).willBe(
-    [sym("<<object>>"),
-     [sym(":"), sym("type"), sym("t")],
-     [sym(":"), "@v+", sym("v")],
-     [sym(":"), sym("d"), sym("false")]]
-  );
+    parsing(
+      "if 'x (# -> array.foo (# v ->",
+      "  v 2",
+      ") 'x)"
+    ).willBe(
+      [sym("if"),
+       quote(sym("x")),
+       [sym("#"),
+        [sym("->"),
+         [dot(sym("array"), sym("foo")),
+          [sym("#"),
+           sym("v"),
+           [sym("->"),
+            [sym("v"), 2]]],
+          quote(sym("x"))]]]]
+    );
+  });
 
-  parsing(
-    "[ bar: y, foo: 100, ] .= x"
-  ).willBe(
-    [sym("="),
-     [sym("<<array>>"),
-      [sym(":"), sym("bar"), sym("y")],
-      [sym(":"), sym("foo"), 100]],
-     sym("x")]
-  );
+  describe("Array/Object Literals", function () {
+    parsing("[]").willBe([sym("<<array>>")]);
+    parsing("{}").willBe([sym("<<object>>")]);
 
-  parsing(
-    '{  "@v+": v } { type: "HOGE"  }'
-  ).willBe(
-    [[sym("<<object>>"),
-      [sym(":"), "@v+", sym("v")]],
-     [sym("<<object>>"),
-      [sym(":"), sym("type"), "HOGE"]]]
-  );
-
-  parsing(
-    "if |> if (while 'x 'y)",
-    "         = bar 100",
-    "         'z",
-    "      'zoo"
-  ).willBe(
-    [sym("if"),
-    [sym("if"),
-     [sym("while"), quote(sym("x")), quote(sym("y"))],
-     [sym("="), sym("bar"), 100],
-     quote(sym("z"))],
-    quote(sym("zoo"))]
-  );
-
-  parsing("()").willBe([]);
-  parsing("(,)").failAt(1, 3);  // Not (1, 2), the comma is interpreted as an unquote.
-  parsing("(300.42)").willBe(300.42);
-  parsing("(3, 8)").willBe([sym("<<tuple>>"), 3, 8]);
-  parsing("[]").willBe([sym("<<array>>")]);
-  parsing("{}").willBe([sym("<<object>>")]);
-
-  parsing(
-    "(a b, foo bar zoo,)"
-  ).willBe(
-    [sym("<<tuple>>"),
-     [sym("a"), sym("b")],
-     [sym("foo"), sym("bar"), sym("zoo")]]
-  );
-
-  parsing(
-    '[ foo: 13 ]'
-  ).willBe(
-    [sym("<<array>>"),
-     [sym(":"), sym("foo"), 13]]
-  );
-
-  parsing(
-    '{ foo: 13 }'
-  ).willBe(
-    [sym("<<object>>"),
-     [sym(":"), sym("foo"), 13]]
-  );
-
-  parsing(
-    '-> a .= []',
-    '   a.length'
-  ).willBe(
-    [sym("->"),
-     [sym("="), sym("a"), [sym("<<array>>")]],
-     [sym("<<dot>>"), sym("a"), sym("length")]]
-  );
-
-  parsing(
-    '-> a .= [',
-    '   ]',
-    '   a.length'
-  ).willBe(
-    [sym("->"),
-     [sym("="), sym("a"), [sym("<<array>>")]],
-     [sym("<<dot>>"), sym("a"), sym("length")]]
-  );
-
-  // A case unwanted but no way to reject...
-  parsing(
-    '-> a .= [',
-    '  ]',
-    ' a.length'
-  ).willBe(
-    [sym("->"),
-     [sym("="), sym("a"), [sym("<<array>>")]],
-     [sym("<<dot>>"), sym("a"), sym("length")]]
-  );
-
-  parsing(
-    '-> a .= [',
-    '     10, 30',
-    '     4',
-    '   ]',
-    '   a.length'
-  ).willBe(
-    [sym("->"),
-     [sym("="),
-      sym("a"),
+    parsing(
+      '[ foo: 13 ]'
+    ).willBe(
       [sym("<<array>>"),
-       10,
-       30,
-       4]],
-     dot(sym("a"), sym("length"))]
-  );
+       [sym(":"), sym("foo"), 13]]
+    );
 
-  parsing(
-    '[',
-    '  foo:',
-    '     13',
-    ']'
-  ).willBe(
-    [sym("<<array>>"),
-     [sym(":"), sym("foo"), 13]]
-  );
+    parsing(
+      '{ foo: 13 }'
+    ).willBe(
+      [sym("<<object>>"),
+       [sym(":"), sym("foo"), 13]]
+    );
 
-  parsing(
-    '{',
-    '  foo:',
-    '     13',
-    '}'
-  ).willBe(
-    [sym("<<object>>"),
-     [sym(":"), sym("foo"), 13]]
-  );
+    parsing(
+      "[ bar: y, foo: 100 ]"
+    ).willBe(
+      [sym("<<array>>"),
+       [sym(":"), sym("bar"), sym("y")],
+       [sym(":"), sym("foo"), 100]]
+    );
 
-  parsing(
-    '[',
-    '  foo:',
-    '     13',
-    '  bar: "string"',
-    ']'
-  ).willBe(
-    [sym("<<array>>"),
-     [sym(":"), sym("foo"), 13],
-     [sym(":"), sym("bar"), "string"]]
-  );
+    parsing(
+      "{ bar: y, foo: 100 }"
+    ).willBe(
+      [sym("<<object>>"),
+       [sym(":"), sym("bar"), sym("y")],
+       [sym(":"), sym("foo"), 100]]
+    );
 
-  parsing(
-    '{',
-    '  foo:',
-    '     13',
-    '  bar: "string"',
-    '}'
-  ).willBe(
-    [sym("<<object>>"),
-     [sym(":"), sym("foo"), 13],
-     [sym(":"), sym("bar"), "string"]]
-  );
+    parsing(
+      "{ o: o, foo: foo } .= object"
+    ).willBe(
+      [sym("="),
+       [sym("<<object>>"),
+        [sym(":"), sym("o"), sym("o")],
+        [sym(":"), sym("foo"), sym("foo")]],
+       sym("object")]
+    );
 
-  parsing(
-    '-> value ->',
-    '',
-    '     zoo',
-    '   z "str"'
-  ).willBe(
-    [sym("->"),
-     [sym("value"),
+    parsing(
+      "[ foo: 100, ]"
+    ).willBe(
+      [sym("<<array>>"),
+       [sym(":"), sym("foo"), 100]]
+    );
+
+    parsing(
+      "{ foo: 100, }"
+    ).willBe(
+      [sym("<<object>>"),
+       [sym(":"), sym("foo"), 100]]
+    );
+
+    parsing(
+      '[ "@v+": 100, ]'
+    ).willBe(
+      [sym("<<array>>"),
+       [sym(":"), "@v+", 100]]
+    );
+
+    parsing(
+      '{ type: t, "@v+": v, d: false}'
+    ).willBe(
+      [sym("<<object>>"),
+       [sym(":"), sym("type"), sym("t")],
+       [sym(":"), "@v+", sym("v")],
+       [sym(":"), sym("d"), sym("false")]]
+    );
+
+    parsing(
+      "[ bar: y, foo: 100, ] .= x"
+    ).willBe(
+      [sym("="),
+       [sym("<<array>>"),
+        [sym(":"), sym("bar"), sym("y")],
+        [sym(":"), sym("foo"), 100]],
+       sym("x")]
+    );
+
+    parsing(
+      '{  "@v+": v } { type: "HOGE"  }'
+    ).willBe(
+      [[sym("<<object>>"),
+        [sym(":"), "@v+", sym("v")]],
+       [sym("<<object>>"),
+        [sym(":"), sym("type"), "HOGE"]]]
+    );
+
+    parsing(
+      '{ a: # -> "foo" }'
+    ).willBe(
+      [sym("<<object>>"),
+       [sym(":"),
+        sym("a"),
+        [sym("#"),
+         [sym("->"),
+          "foo"]]]]
+    );
+
+    parsing(
+      '{ toString: # -> "foo" }.toString 1'
+    ).willBe(
+      [dot([sym("<<object>>"),
+            [sym(":"),
+             sym("toString"),
+             [sym("#"),
+              [sym("->"),
+               "foo"]]]],
+           sym("toString")),
+       1]
+    );
+
+  });
+
+  describe("Tuples", function () {
+    parsing("()").willBe([]);
+    parsing("(,)").failAt(1, 3);  // Not (1, 2), the comma is interpreted as an unquote.
+    parsing("(300.42)").willBe(300.42);
+    parsing("(3, 8)").willBe([sym("<<tuple>>"), 3, 8]);
+
+    parsing(
+      "(a b, foo bar zoo,)"
+    ).willBe(
+      [sym("<<tuple>>"),
+       [sym("a"), sym("b")],
+       [sym("foo"), sym("bar"), sym("zoo")]]
+    );
+  });
+
+  describe("Multilined expressions", function () {
+    parsing(
+      '-> a .= []',
+      '   a.length'
+    ).willBe(
       [sym("->"),
-       sym("zoo")]],
-     [sym("z"), "str"]]
-  );
+       [sym("="), sym("a"), [sym("<<array>>")]],
+       [sym("<<dot>>"), sym("a"), sym("length")]]
+    );
 
-  parsing(
-    'xx -> foo bar',
-    '      zoo',
-    '      100',
-    '  z "str"'
-  ).willBe(
-    [sym("xx"),
-     [sym("->"),
-      [sym("foo"), sym("bar")],
-      sym("zoo"),
-      100],
-     [sym("z"), "str"]]
-  );
-
-  parsing(
-    'xx |> (foo bar) zoo',
-    '       100',
-    '  z "str"'
-  ).willBe(
-    [sym("xx"),
-     [[sym("foo"), sym("bar")],
-      sym("zoo"),
-      100],
-     [sym("z"), "str"]]
-  );
-
-  parsing(
-    'foo.bar |> (a.1) b.100'
-  ).willBe(
-    [dot(sym("foo"), sym("bar")),
-     [dot(sym("a"), 1),
-      dot(sym("b"), 100)]]
-  );
-
-  parsing(
-    'foo.bar -> (a.1)',
-    '           b.100'
-  ).willBe(
-    [dot(sym("foo"), sym("bar")),
-     [sym("->"),
-      dot(sym("a"), 1),
-      dot(sym("b"), 100)]]
-  );
-
-  parsing('foo.bar a.1, b.100').failAt(1, 12); // at ","
-
-  parsing(
-    'foo *qual 100'
-  ).willBe(
-    [sym("*qual"),
-     sym("foo"),
-     100]
-  );
-
-  parsing(
-    'foo',
-    ' *qual 778'
-  ).willBe(
-    [sym("*qual"),
-     sym("foo"),
-     778]
-  );
-
-  parsing(
-    'foo',
-    '*qual "qualifier can be placed same column of a node"'
-  ).willBe(
-    [sym("*qual"),
-     sym("foo"),
-     "qualifier can be placed same column of a node"]
-  );
-
-  parsing(
-    'foo *.bar'
-  ).willBe(
-    [sym("*."),
-     sym("foo"),
-     sym("bar")]
-  );
-
-  parsing(
-    'foo ()'
-  ).willBe(
-    [sym("foo")]
-  );
-
-  parsing(
-    '(foo.bar ()) ()'
-  ).willBe(
-    [[dot(sym("foo"), sym("bar"))]]
-  );
-
-  parsing(
-    'foo 1 aa *.ar 100 '
-  ).willBe(
-    [sym("*."),
-     [sym("foo"), 1, sym("aa")],
-     [sym("ar"), 100]]
-  );
-
-  parsing(
-    'fee 100',
-    ' *.ver 100'
-  ).willBe(
-    [sym("*."),
-     [sym("fee"), 100],
-     [sym("ver"), 100]]
-  );
-
-  parsing(
-    'fee 100',
-    '  ver 100',
-    ' *.bbb'
-  ).willBe(
-    [sym("*."),
-     [sym("fee"),
-      100,
-      [sym("ver"), 100]],
-     sym("bbb")]
-  );
-
-  parsing(
-    'fee 100',
-    ' ver 100',
-    ' *.bbb'
-  ).willBe(
-    [sym("fee"),
-     100,
-     [sym("*."),
-      [sym("ver"), 100],
-      sym("bbb")]]
-  );
-
-  parsing(
-    'fee 100',
-    ' *.ver 100',
-    ' *.bbb'
-  ).willBe(
-    [sym("*."),
-     [sym("*."),
-      [sym("fee"), 100],
-      [sym("ver"), 100]],
-     sym("bbb")]
-  );
-
-  parsing(
-    '(a b c)',
-    '  d'
-  ).willBe(
-    [[sym("a"),
-      sym("b"),
-      sym("c")],
-     sym("d")]
-  );
-
-  parsing(
-    '(left_parenthesis must_be_considered as_head_of_a_sequence)',
-    ' hence_this_belongs_the_sequence'
-  ).willBe(
-    [[sym("left_parenthesis"),
-      sym("must_be_considered"),
-      sym("as_head_of_a_sequence")],
-     sym("hence_this_belongs_the_sequence")]
-  );
-
-  parsing(
-    '(((((a)))))',
-    ' b'
-  ).willBe(
-    [sym("a"), sym("b")]
-  );
-
-  parsing('@').failAt(1, 2);
-  parsing(
-    '@',
-    'foo'
-  ).failAt(2, 1);
-
-  parsing(
-    '@foo'
-  ).willBe(
-    [sym("@"), sym("foo")]
-  );
-
-  parsing(
-    '@foo ()'
-  ).willBe(
-    [[sym("@"), sym("foo")]]
-  );
-
-  parsing(
-    '@foo 1 @bar'
-  ).willBe(
-    [[sym("@"), sym("foo")],
-     1,
-     [sym("@"), sym("bar")]]
-  );
-
-  // Regression: dot accessed properties as the seqneuce head
-  parsing(
-    'foo.bar',
-    ' a'
-  ).willBe(
-    [[sym("<<dot>>"), sym("foo"), sym("bar")],
-     sym("a")]
-  );
-
-  parsing(
-    'log e *debug'
-  ).willBe(
-       [sym("*debug"),
-        [sym("log"),
-         sym("e")]]
-  );
-
-  parsing(
-    '#() -> v'
-  ).willBe(
-     [sym("#"),
-      [],
+    parsing(
+      '-> a .= [',
+      '   ]',
+      '   a.length'
+    ).willBe(
       [sym("->"),
-       sym("v")]]
-  );
+       [sym("="), sym("a"), [sym("<<array>>")]],
+       [sym("<<dot>>"), sym("a"), sym("length")]]
+    );
 
-  parsing(
-    '# a b (c 100) -> v'
-  ).willBe(
-     [sym("#"),
-      sym("a"),
-      sym("b"),
-      [sym("c"),
-       100],
+    // A case unwanted but no way to reject...
+    parsing(
+      '-> a .= [',
+      '  ]',
+      ' a.length'
+    ).willBe(
       [sym("->"),
-       sym("v")]]
-  );
+       [sym("="), sym("a"), [sym("<<array>>")]],
+       [sym("<<dot>>"), sym("a"), sym("length")]]
+    );
 
-  parsing(
-    '->',
-    '  window.addEventListener "list" # e ->',
-    '    console.log ("event-list" .+ e) *debug'
-  ).willBe(
-    [sym("->"),
-     [dot(sym("window"), sym("addEventListener")),
-      "list",
-      [sym("#"),
-       sym("e"),
+    parsing(
+      '-> a .= [',
+      '     10, 30',
+      '     4',
+      '   ]',
+      '   a.length'
+    ).willBe(
+      [sym("->"),
+       [sym("="),
+        sym("a"),
+        [sym("<<array>>"),
+         10,
+         30,
+         4]],
+       dot(sym("a"), sym("length"))]
+    );
+
+    parsing(
+      '[',
+      '  foo:',
+      '     13',
+      ']'
+    ).willBe(
+      [sym("<<array>>"),
+       [sym(":"), sym("foo"), 13]]
+    );
+
+    parsing(
+      '{',
+      '  foo:',
+      '     13',
+      '}'
+    ).willBe(
+      [sym("<<object>>"),
+       [sym(":"), sym("foo"), 13]]
+    );
+
+    parsing(
+      '[',
+      '  foo:',
+      '     13',
+      '  bar: "string"',
+      ']'
+    ).willBe(
+      [sym("<<array>>"),
+       [sym(":"), sym("foo"), 13],
+       [sym(":"), sym("bar"), "string"]]
+    );
+
+    parsing(
+      '{',
+      '  foo:',
+      '     13',
+      '  bar: "string"',
+      '}'
+    ).willBe(
+      [sym("<<object>>"),
+       [sym(":"), sym("foo"), 13],
+       [sym(":"), sym("bar"), "string"]]
+    );
+
+    parsing(
+      '-> value ->',
+      '',
+      '     zoo',
+      '   z "str"'
+    ).willBe(
+      [sym("->"),
+       [sym("value"),
+        [sym("->"),
+         sym("zoo")]],
+       [sym("z"), "str"]]
+    );
+
+    parsing(
+      'xx -> foo bar',
+      '      zoo',
+      '      100',
+      '  z "str"'
+    ).willBe(
+      [sym("xx"),
        [sym("->"),
-        [sym("*debug"),
-         [dot(sym("console"), sym("log")),
-          [sym("+"), "event-list", sym("e")]]] ]]]]
-  );
-
-  parsing(
-    '->',
-    '  v .= 0',
-    '  window.addEventListener "list" # e ->',
-    '    console.log ("event-list" .+ e) *debug',
-    '    v *++',
-    '  #() -> v'
-  ).willBe(
-    [sym("->"),
-     [sym("="), sym("v"), 0],
-     [dot(sym("window"), sym("addEventListener")),
-      "list",
-      [sym("#"),
-       sym("e"),
-       [sym("->"),
-        [sym("*debug"),
-         [dot(sym("console"), sym("log")),
-          [sym("+"), "event-list", sym("e")]]],
-        [sym("*++"), sym("v")]]]],
-     [sym("#"),
-      [],
-      [sym("->"),
-       sym("v")]]]
-  );
-
-  parsing(
-    'a -> foo bar .* 100'
-  ).willBe(
-    [sym("a"),
-     [sym("->"),
-      [sym("*"),
-       [sym("foo"), sym("bar")],
-       100]]]
-  );
-
-  parsing(
-    'a -> foo bar .* 100 *if v'
-  ).willBe(
-    [sym("a"),
-     [sym("->"),
-      [sym("*if"),
-       [sym("*"),
         [sym("foo"), sym("bar")],
+        sym("zoo"),
         100],
-       sym("v")]]]
-  );
+       [sym("z"), "str"]]
+    );
 
-  parsing(
-    'a -> b c .* 3 *if v',
-    ' *this qualifies.a'
-  ).willBe(
-    [sym("*this"),
-     [sym("a"),
-      [sym("->"),
-       [sym("*if"),
-        [sym("*"),
-         [sym("b"), sym("c")],
-         3],
-        sym("v")]]],
-     dot(sym("qualifies"), sym("a"))]
-  );
+    parsing(
+      'xx |> (foo bar) zoo',
+      '       100',
+      '  z "str"'
+    ).willBe(
+      [sym("xx"),
+       [[sym("foo"), sym("bar")],
+        sym("zoo"),
+        100],
+       [sym("z"), "str"]]
+    );
 
-  parsing(
-    'a -> b c .* 3 *if v',
-    '   *this qualifies.arrow'
-  ).willBe(
-     [sym("a"),
+    parsing(
+      'foo.bar |> (a.1) b.100'
+    ).willBe(
+      [dot(sym("foo"), sym("bar")),
+       [dot(sym("a"), 1),
+        dot(sym("b"), 100)]]
+    );
+
+    parsing(
+      'foo.bar -> (a.1)',
+      '           b.100'
+    ).willBe(
+      [dot(sym("foo"), sym("bar")),
+       [sym("->"),
+        dot(sym("a"), 1),
+        dot(sym("b"), 100)]]
+    );
+  });
+
+  describe("Qualifiers", function () {
+    parsing("(*qual)").willBe(sym("*qual"));
+    parsing("(*qual foo)").failAt(1, 8);
+
+    parsing(
+      'foo *qual 100'
+    ).willBe(
+      [sym("*qual"),
+       sym("foo"),
+       100]
+    );
+
+    parsing(
+      'foo',
+      ' *qual 778'
+    ).willBe(
+      [sym("*qual"),
+       sym("foo"),
+       778]
+    );
+
+    parsing(
+      'foo',
+      '*qual "qualifier can be placed same column of a node"'
+    ).willBe(
+      [sym("*qual"),
+       sym("foo"),
+       "qualifier can be placed same column of a node"]
+    );
+
+    parsing(
+      'foo *.bar'
+    ).willBe(
+      [sym("*."),
+       sym("foo"),
+       sym("bar")]
+    );
+
+    parsing(
+      'foo 1 aa *.ar 100 '
+    ).willBe(
+      [sym("*."),
+       [sym("foo"), 1, sym("aa")],
+       [sym("ar"), 100]]
+    );
+
+    parsing(
+      'fee 100',
+      ' *.ver 100'
+    ).willBe(
+      [sym("*."),
+       [sym("fee"), 100],
+       [sym("ver"), 100]]
+    );
+
+    parsing(
+      'fee 100',
+      '  ver 100',
+      ' *.bbb'
+    ).willBe(
+      [sym("*."),
+       [sym("fee"),
+        100,
+        [sym("ver"), 100]],
+       sym("bbb")]
+    );
+
+    parsing(
+      'fee 100',
+      ' ver 100',
+      ' *.bbb'
+    ).willBe(
+      [sym("fee"),
+       100,
+       [sym("*."),
+        [sym("ver"), 100],
+        sym("bbb")]]
+    );
+
+    parsing(
+      'fee 100',
+      ' *.ver 100',
+      ' *.bbb'
+    ).willBe(
+      [sym("*."),
+       [sym("*."),
+        [sym("fee"), 100],
+        [sym("ver"), 100]],
+       sym("bbb")]
+    );
+
+    parsing(
+      'log e *debug'
+    ).willBe(
+         [sym("*debug"),
+          [sym("log"),
+           sym("e")]]
+    );
+
+    parsing(
+      'a -> b c .* 3 *if v',
+      ' *this qualifies.a'
+    ).willBe(
       [sym("*this"),
-       [sym("->"),
-        [sym("*if"),
-         [sym("*"),
-          [sym("b"), sym("c")],
-          3],
-         sym("v")]],
-       dot(sym("qualifies"), sym("arrow"))]]
-  );
+       [sym("a"),
+        [sym("->"),
+         [sym("*if"),
+          [sym("*"),
+           [sym("b"), sym("c")],
+           3],
+          sym("v")]]],
+       dot(sym("qualifies"), sym("a"))]
+    );
 
-  parsing(
-    'a -> b c .* 3 *if v',
-    '       *this qualifies.b'
-  ).willBe(
-     [sym("a"),
-       [sym("->"),
+    parsing(
+      'a -> b c .* 3 *if v',
+      '   *this qualifies.arrow'
+    ).willBe(
+       [sym("a"),
         [sym("*this"),
+         [sym("->"),
           [sym("*if"),
            [sym("*"),
             [sym("b"), sym("c")],
             3],
-           sym("v")],
-         dot(sym("qualifies"), sym("b"))]]]
-  );
+           sym("v")]],
+         dot(sym("qualifies"), sym("arrow"))]]
+    );
 
-  parsing(
-    'foo bar',
-    ' .zoo'
-  ).failAt(2, 2);
+    parsing(
+      'a -> b c .* 3 *if v',
+      '       *this qualifies.b'
+    ).willBe(
+       [sym("a"),
+         [sym("->"),
+          [sym("*this"),
+            [sym("*if"),
+             [sym("*"),
+              [sym("b"), sym("c")],
+              3],
+             sym("v")],
+           dot(sym("qualifies"), sym("b"))]]]
+    );
 
-  parsing(
-    'a |> foo',
-    '     .bar'
-  ).failAt(2, 6);
+  });
 
-  parsing(
-    '{ a: # -> "foo" }'
-  ).willBe(
-    [sym("<<object>>"),
-     [sym(":"),
-      sym("a"),
-      [sym("#"),
+  describe("Misc/Regressions", function () {
+    parsing('foo.bar a.1, b.100').failAt(1, 12); // at ","
+
+    parsing(
+      'foo ()'
+    ).willBe(
+      [sym("foo")]
+    );
+
+    parsing(
+      '(foo.bar ()) ()'
+    ).willBe(
+      [[dot(sym("foo"), sym("bar"))]]
+    );
+
+    parsing(
+      '(a b c)',
+      '  d'
+    ).willBe(
+      [[sym("a"),
+        sym("b"),
+        sym("c")],
+       sym("d")]
+    );
+
+    parsing(
+      '(left_parenthesis must_be_considered as_head_of_a_sequence)',
+      ' hence_this_belongs_the_sequence'
+    ).willBe(
+      [[sym("left_parenthesis"),
+        sym("must_be_considered"),
+        sym("as_head_of_a_sequence")],
+       sym("hence_this_belongs_the_sequence")]
+    );
+
+    parsing(
+      '(((((a)))))',
+      ' b'
+    ).willBe(
+      [sym("a"), sym("b")]
+    );
+
+    // Regression: dot accessed properties as the seqneuce head
+    parsing(
+      'foo.bar',
+      ' a'
+    ).willBe(
+      [[sym("<<dot>>"), sym("foo"), sym("bar")],
+       sym("a")]
+    );
+
+    // Regression ,foo.bar should be (,foo).bar but not ,(foo.bar)
+    parsing(",',foo.bar").willBe(
+      dot(unquote(quote(unquote(sym("foo")))),
+          sym("bar"))
+    );
+
+  });
+
+  describe("@", function () {
+    parsing('@').failAt(1, 2);
+    parsing(
+      '@',
+      'foo'
+    ).failAt(2, 1);
+
+    parsing(
+      '@foo'
+    ).willBe(
+      [sym("@"), sym("foo")]
+    );
+
+    parsing(
+      '@foo ()'
+    ).willBe(
+      [[sym("@"), sym("foo")]]
+    );
+
+    parsing(
+      '@foo 1 @bar'
+    ).willBe(
+      [[sym("@"), sym("foo")],
+       1,
+       [sym("@"), sym("bar")]]
+    );
+  });
+
+  describe("General Complicated Cases", function () {
+    parsing(
+      '#() -> v'
+    ).willBe(
+       [sym("#"),
+        [],
+        [sym("->"),
+         sym("v")]]
+    );
+
+    parsing(
+      '# a b (c 100) -> v'
+    ).willBe(
+       [sym("#"),
+        sym("a"),
+        sym("b"),
+        [sym("c"),
+         100],
+        [sym("->"),
+         sym("v")]]
+    );
+
+    parsing(
+      '->',
+      '  window.addEventListener "list" # e ->',
+      '    console.log ("event-list" .+ e) *debug'
+    ).willBe(
+      [sym("->"),
+       [dot(sym("window"), sym("addEventListener")),
+        "list",
+        [sym("#"),
+         sym("e"),
+         [sym("->"),
+          [sym("*debug"),
+           [dot(sym("console"), sym("log")),
+            [sym("+"), "event-list", sym("e")]]] ]]]]
+    );
+
+    parsing(
+      '->',
+      '  v .= 0',
+      '  window.addEventListener "list" # e ->',
+      '    console.log ("event-list" .+ e) *debug',
+      '    v *++',
+      '  #() -> v'
+    ).willBe(
+      [sym("->"),
+       [sym("="), sym("v"), 0],
+       [dot(sym("window"), sym("addEventListener")),
+        "list",
+        [sym("#"),
+         sym("e"),
+         [sym("->"),
+          [sym("*debug"),
+           [dot(sym("console"), sym("log")),
+            [sym("+"), "event-list", sym("e")]]],
+          [sym("*++"), sym("v")]]]],
+       [sym("#"),
+        [],
+        [sym("->"),
+         sym("v")]]]
+    );
+
+    parsing(
+      'a -> foo bar .* 100'
+    ).willBe(
+      [sym("a"),
        [sym("->"),
-        "foo"]]]]
-  );
+        [sym("*"),
+         [sym("foo"), sym("bar")],
+         100]]]
+    );
 
-  parsing(
-    '{ toString: # -> "foo" }.toString 1'
-  ).willBe(
-    [dot([sym("<<object>>"),
-          [sym(":"),
-           sym("toString"),
-           [sym("#"),
-            [sym("->"),
-             "foo"]]]],
-         sym("toString")),
-     1]
-  );
+    parsing(
+      'a -> foo bar .* 100 *if v'
+    ).willBe(
+      [sym("a"),
+       [sym("->"),
+        [sym("*if"),
+         [sym("*"),
+          [sym("foo"), sym("bar")],
+          100],
+         sym("v")]]]
+    );
 
-  // regression ,foo.bar should be (,foo).bar but not ,(foo.bar)
-  parsing(",',foo.bar").willBe(
-    dot(unquote(quote(unquote(sym("foo")))),
-        sym("bar"))
-  );
+    parsing(
+      "if |> if (while 'x 'y)",
+      "         = bar 100",
+      "         'z",
+      "      'zoo"
+    ).willBe(
+      [sym("if"),
+      [sym("if"),
+       [sym("while"), quote(sym("x")), quote(sym("y"))],
+       [sym("="), sym("bar"), 100],
+       quote(sym("z"))],
+      quote(sym("zoo"))]
+    );
+
+    parsing(
+      'foo bar',
+      ' .zoo'
+    ).failAt(2, 2);
+
+    parsing(
+      'a |> foo',
+      '     .bar'
+    ).failAt(2, 6);
+
+  });
+
+  describe("String Interpolations", function () {
+
+    parsing('#"foo bar zoo#aa"').willBe("foo bar zoo#aa");
+
+    parsing('#"#{foo}"').willBe(
+      [sym("+"),
+       "",
+       sym("foo"),
+       ""]
+    );
+
+    parsing('#"#{"foo"}"').willBe(
+      [sym("+"),
+       "",
+       "foo",
+       ""]
+    );
+
+    parsing('#"aa {bb #{xx} cc}"').willBe(
+      [sym("+"),
+       "aa {bb ",
+       sym("xx"),
+       " cc}"]
+    );
+
+    parsing('#"foo #{ 1 }dsa"').willBe(
+      [sym("+"),
+       "foo ",
+       1,
+       "dsa"]
+    );
+
+    parsing('#"foo #{ foo 1 "sl" }dsa"').willBe(
+      [sym("+"),
+       "foo ",
+       [sym("foo"),
+        1,
+        "sl"],
+       "dsa"]
+    );
+
+
+    parsing('#"foo #{ foo 1 "sl" }dsa#{- x}"').willBe(
+      [sym("+"),
+       "foo ",
+       [sym("foo"),
+        1,
+        "sl"],
+       "dsa",
+       [sym("-"),
+        sym("x")],
+       ""]
+    );
+
+    parsing('#"foo #{ foo #"inside #{ x "foo" } endinside" }dsa"').willBe(
+      [sym("+"),
+       "foo ",
+       [sym("foo"),
+        [sym("+"),
+         "inside ",
+         [sym("x"),
+          "foo"],
+         " endinside"]],
+       "dsa"]
+    );
+
+  });
 
 });
 
