@@ -917,5 +917,47 @@ describe("Compiler", function () {
     "x.foo?.value .? 100"
   ).willBe(1);
 
+  // string interpolation
+
+  evaluating('#"foo bar zoo#aa"').willBe("foo bar zoo#aa");
+
+  evaluating(
+    'foo .= 3',
+    '#"#{foo}"'
+  ).willBe("3");
+
+  evaluating('#"#{"foo"}"').willBe("foo");
+
+  evaluating(
+    'xx .= "XX"',
+    '#"aa {bb #{xx} cc}"'
+  ).willBe(
+    "aa {bb XX cc}"
+  );
+
+  evaluating('#"foo #{ 1 }dsa"').willBe("foo 1dsa");
+
+  evaluating(
+    'foo .= #(a, b) -> b .+ (a .* 100)',
+    '#"foo #{ foo 1 "sl" }dsa"'
+  ).willBe(
+    "foo sl100dsa"
+  );
+
+  evaluating(
+    'x .= 15',
+    '#"foo #{ foo 1 "sl" }dsa#{- x}"'
+  ).willBe(
+    "foo sl100dsa-15"
+  );
+
+  evaluating(
+    'foo .= # (a b) -> + b a b',
+    'x .= # a -> a .+ a',
+    '#"foo #{ foo #"inside #{ x "foo" } endinside" "ABC" }dsa"'
+  ).willBe(
+    "foo ABCinside foofoo endinsideABCdsa"
+  );
+
 });
 

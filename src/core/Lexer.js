@@ -29,7 +29,6 @@ function rule_base(re, handler, always_call, only_after) {
     re.lastIndex = this.start_;
     var m = re.exec(this.src_);
     if (m && (m[0] !== undefined) && (m[0].length > 0 || always_call)) {
-      //console.log(JSON.stringify(Array.prototype.slice.apply(m)) + " / " + re.toString().substr(0, 40));
       var col = this.col_;
       this.col_ += m[0].length;
       this.start_ = re.lastIndex;
@@ -63,13 +62,17 @@ var IDENT = [
   ")",
 ].join("");
 
+// A dummy marker to notify the parent lexer of
+// "reached to the end of a string interpolation."
+// Only used by a child lexer (`!!this.parent_`).
+var UNMATCHED_CLOSE_BRACKET = { UNMATCHED: 0 };
 
 // Klass Lexer
 // -----------
 //
-module.exports = klass({
+var Lexer = klass({
 
-  initialize: function (onerror) {
+  initialize: function (onerror, parent) {
     // Migration check. TODO Remove.
     if (typeof onerror === "string") {
       devel.dthrow("Lexer.initialize() invoked with wrong arguments...");
@@ -78,18 +81,33 @@ module.exports = klass({
 
     onerror || (onerror = function () { throw CompilerMessage.FATAL; });
     this.onerror_ = onerror;
+    this.parent_ = parent;
     this.setInput();
   },
 
-  setInput: function (src) {
+  setInput: function (src, start, line, col) {
     src = src || "";
     this.src_ = src;
     this.end_ = this.src_.length;
-    this.start_ = this.line_ = this.col_ = 0;
-    this.parsing_indent_ = true;
+    this.start_ = start | 0;
+    this.line_ = line | 0;
+    this.col_ = col | 0;
+    this.lexing_indent = (this.col_ === 0);
     this.last_char_ = undefined;
-
     this.prev_token_ = undefined;
+
+    // A lexer may have a child lexer that scans the expressions inside of
+    // string interpolations.  When `this.child_` is not undefined `this.lex()`
+    // should be redirected to it.
+    this.child_ = undefined;
+
+    // Counts the current 'yet closed' open-bracket symbols ({).
+    // When this count goes negative while `this.parent_` is not undefined,
+    // we found that the close-bracket symbol (}) (that decrements the count)
+    // is 'unmatched'.  This means the expression inside of a string
+    // interpolation is terminated there and hence the control have to be
+    // brought back to the parent lexer.
+    this.open_brackets_ = 0;
 
     this.ungotten_ = [];
     return this;
@@ -195,6 +213,45 @@ module.exports = klass({
         return Token.make(m[1], m[1], l, c);
       }),
 
+  startInterpolation_: function () {
+    this.child_ = new Lexer(this.onerror_, this);
+    this.child_.setInput(this.src_, this.start_, this.line_, this.col_);
+  },
+
+  lexStringInterpolation_:
+    rule(
+      /#"((?:[^\\"#]|\\.|#(?!{))*)("|#{)|(?=.?)/g,
+      function (m, l, c) {
+        if (m[2] === '"') {
+          // No interpolations are.  Just return a plain string.
+          return Token.makeStr('"' + m[1] + '"', l, c);
+        }
+
+        this.startInterpolation_();
+        return Token.makeInterpolatedStrHead('"' + m[1] + '"', l, c);
+      }),
+
+  lexStringInterpolationPart_:
+    rule(
+      /((?:[^\\"#]|\\.|#(?!{))*)("|#{)|(?=.?)/g,
+      function (m, l, c) {
+        if (m[2] === '"') {
+          // The end of the interpolated string.
+          return Token.makeInterpolatedStrTail('"' + m[1] + '"', l, c);
+        }
+
+        // Another interpolation found.
+        this.startInterpolation_();
+        return Token.makeInterpolatedStrPart('"' + m[1] + '"', l, c);
+      }),
+
+  lexString_:
+    rule(
+      /("(?:[^\\"]|\\.)*")|(?=.?)/g,
+      function (m, l, c) {
+        return Token.makeStr(m[1], l, c);
+      }),
+
   lexHashIdentifier_:
     rule(
       [
@@ -219,13 +276,6 @@ module.exports = klass({
       ],
       function (m, l, c) {
         return Token.makeIdent(m[1], l, c);
-      }),
-
-  lexString_:
-    rule(
-      /("(?:[^\\"]|\\.)*")|(?=.?)/g,
-      function (m, l, c) {
-        return Token.makeStr(m[1], l, c);
       }),
 
   lexNumber_:
@@ -253,7 +303,7 @@ module.exports = klass({
       function (m) {
         ++this.line_;
         this.col_ = 0;
-        this.parsing_indent_ = true;
+        this.lexing_indent = true;
         return true;
       }),
 
@@ -268,17 +318,33 @@ module.exports = klass({
 
   // *lex()*: the main interface
   lex: function () {
-    next: while (this.start_ < this.end_ || this.ungotten_.length > 0) {
+    next: while (this.start_ < this.end_ || this.ungotten_.length > 0 || this.child_) {
 
       if (this.ungotten_.length > 0)
         return this.ungotten_.pop();
 
-      if (this.parsing_indent_) {
-        this.parsing_indent_ = false;
+      // `this.child_` is truthy iff we are lexing the expressions inside of
+      // a string interpolation.  Redirect to the child.
+      if (this.child_) {
+        var ret = this.child_.lex();
+        if (ret !== UNMATCHED_CLOSE_BRACKET)
+          return ret;
+
+        // Here we found an 'unmatched' close bracket that indeicates
+        // the end of a string interpolation.  Continue after proceeding the position.
+        this.start_ = this.child_.start_;
+        this.line_ = this.child_.line_;
+        this.col_ = this.child_.col_;
+        this.child_ = undefined;
+        return this.lexStringInterpolationPart_();
+      }
+
+      if (this.lexing_indent) {
+        this.lexing_indent = false;
 
         var empty_lines = 0;
         var indent = this.lexIndent_();
-        while ((next = this.lex()).toktype === "INDENT") {  // Actually this never repeats because of recursive call...
+        while ((next = this.lex()).toktype === "INDENT") {  // Actually this never repeats because of recursive call...?
           ++empty_lines;
           indent = next;
         }
@@ -293,9 +359,10 @@ module.exports = klass({
              || this.lexOperator_()
              || this.lexQualifier_()
              || this.lexSpecialSymbols_()
+             || this.lexStringInterpolation_()
+             || this.lexString_()
              || this.lexHashIdentifier_()
              || this.lexIdentifier_()
-             || this.lexString_()
              || this.lexNumber_()
              || this.lexNewline_()
              || this.lexMultilineComment_()
@@ -311,6 +378,14 @@ module.exports = klass({
 
       if (!(ret instanceof Token))
         continue next;
+
+      if (ret.toktype === "{") {
+        ++this.open_brackets_;
+      } else if (ret.toktype === "}") {
+        --this.open_brackets_;
+        if (this.open_brackets_ < 0)
+          return UNMATCHED_CLOSE_BRACKET;
+      }
 
       this.checkSuspiciousToken_(ret);
 
@@ -349,4 +424,6 @@ module.exports = klass({
   })(),
 
 });
+
+module.exports = Lexer;
 
