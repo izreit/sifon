@@ -25,6 +25,9 @@ var CompilerMessage = klass({
         msg || (msg = "");
         return new CompilerMessage(loc, T("### Unexpected ###. ###", type, unexpected, msg));
       },
+      invalidShallowIndentInMultilineString: function (loc) {
+        return new CompilerMessage(loc, "Invalid shallow indent in a multiline string.");
+      },
       invalidSpecialForm: function (loc, head) {
         return new CompilerMessage(loc, T("Invalid special form `###'.", head));
       },
