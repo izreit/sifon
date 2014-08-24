@@ -218,38 +218,67 @@ var Lexer = klass({
     this.child_.setInput(this.src_, this.start_, this.line_, this.col_);
   },
 
+  makeIndentStripper_: function (n, l, c) {
+    var indent = util.spacer(n);
+    var cont_re = /\\(?:\r\n|\r(?!\n)|[\n\u2028\u2029])\s*/g;
+    var indent_re = new RegExp("(?:\\r\\n|\\r(?!\\n)|[\\n\\u2028\\u2029])" + indent, "g");
+    var self = this;
+    return function (s) {
+
+      var ss = s.replace(/([\r\n\u2028\u2029])(\s*)/g, function (m, nl, indent) {
+        var notab = indent.replace(/\t/g, "    ");
+        if (indent.length !== notab.length)
+          self.onerror_(CompilerMessage.Warning.indentIncludingTab(Token.make("DUMMY", 0, l, c)));
+        return nl + notab;
+      });
+
+      var ret = ss.replace(cont_re, " ").replace(indent_re, "\\n");
+      if (ret.indexOf("\n") !== -1)
+        self.onerror_(CompilerMessage.Error.invalidShallowIndentInMultilineString(Token.make("DUMMY", 0, l, c)));
+      return ret;
+    };
+  },
+
   lexStringInterpolation_:
     rule(
-      /#"((?:[^\\"#]|\\.|#(?!{))*)("|#{)|(?=.?)/g,
+      /#"((?:[^\\"#]|\\[\s\S]|#(?!{))*)("|#{)|(?=.?)/g,
       function (m, l, c) {
+        var strip_indent = this.makeIndentStripper_(c + 2, l, c);  // Two in (c + 2) for the length of '#"'
+        var s = strip_indent(m[1]);
+
         if (m[2] === '"') {
           // No interpolations are.  Just return a plain string.
-          return Token.makeStr('"' + m[1] + '"', l, c);
+          return Token.makeStr('"' + s + '"', l, c);
         }
 
         this.startInterpolation_();
-        return Token.makeInterpolatedStrHead('"' + m[1] + '"', l, c);
+        this.strip_indent_ = strip_indent;  // Used and cleared only by `lexStringInterpolationPart_()`.
+        return Token.makeInterpolatedStrHead('"' + s + '"', l, c);
       }),
 
   lexStringInterpolationPart_:
     rule(
-      /((?:[^\\"#]|\\.|#(?!{))*)("|#{)|(?=.?)/g,
+      /((?:[^\\"#]|\\[\s\S]|#(?!{))*)("|#{)|(?=.?)/g,
       function (m, l, c) {
+        var s = this.strip_indent_(m[1]);
+
         if (m[2] === '"') {
           // The end of the interpolated string.
-          return Token.makeInterpolatedStrTail('"' + m[1] + '"', l, c);
+          this.strip_indent_ = undefined;
+          return Token.makeInterpolatedStrTail('"' + s + '"', l, c);
         }
 
         // Another interpolation found.
         this.startInterpolation_();
-        return Token.makeInterpolatedStrPart('"' + m[1] + '"', l, c);
+        return Token.makeInterpolatedStrPart('"' + s + '"', l, c);
       }),
 
   lexString_:
     rule(
-      /("(?:[^\\"]|\\.)*")|(?=.?)/g,
+      /("(?:[^\\"]|\\[\s\S])*")|(?=.?)/g,
       function (m, l, c) {
-        return Token.makeStr(m[1], l, c);
+        var strip_indent = this.makeIndentStripper_(c + 1, l, c);  // One in (c + 1) for the length of '"'
+        return Token.makeStr(strip_indent(m[1]), l, c);
       }),
 
   lexHashIdentifier_:

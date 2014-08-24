@@ -173,9 +173,23 @@ function lexing(src__) {
     return this;
   };
 
+  var failsAt = function (line, col) {
+    it("should fail: " + caption + " at (" + line + ", " + col + ")", function () {
+      var es = errors.filter(function (e) { return e.type === "error"; });
+      var found = es.some(function (w) {
+        return (w.line === line) && (w.col === col);
+      });
+      if (!found)
+        console.log("ERRORS: " + JSON.stringify(es));
+      expect(found).equal(true);
+    });
+    return this;
+  };
+
   return {
     gets: gets,
     warnsAt: warnsAt,
+    failsAt: failsAt,
     noWarning: noWarning,
   }
 }
@@ -367,6 +381,82 @@ describe("Lexer", function () {
         istrtail('" endinside"'),
       istrtail('"dsa"')
     );
+  });
+
+  describe("Multiline String", function () {
+
+    lexing(
+      '"foo',
+      ' bar',
+      '   zoo"'
+    ).gets("foo\\nbar\\n  zoo")
+     .noWarning();
+
+    lexing(
+      '"foo',
+      ' bar\\',
+      '   zoo"'
+    ).gets("foo\\nbar zoo")
+     .noWarning();
+
+    lexing(
+      '"foo',
+      '\t\tbar\\',
+      '   zoo"'
+    ).gets("foo\\n       bar zoo")
+     .warnsAt(1, 1);
+
+    lexing(
+      ' "foo',
+      '  bar',
+      ' zoo"'
+    ).failsAt(1, 2);
+
+    lexing(
+      '#"foo',
+      '  bar',
+      '    zoo"'
+    ).gets("foo\\nbar\\n  zoo")
+     .noWarning();
+
+    lexing(
+      '#"foo',
+      '  bar\\',
+      '    zoo"'
+    ).gets("foo\\nbar zoo")
+     .noWarning();
+
+    lexing(
+      '#"foo',
+      '\t\tbar\\',
+      '   zoo"'
+    ).gets("foo\\n      bar zoo")
+     .warnsAt(1, 1);
+
+    lexing(
+      '#"foo',
+      '  bar#{100}zzoo',
+      '    zoo"'
+    ).gets(
+       istrhead('"foo\\nbar"'), 100, istrtail('"zzoo\\n  zoo"')
+    ).noWarning();
+
+    lexing(
+      '#"foo',
+      '  bar#{100',
+      '   }zzo#{1}o',
+      '    zoo"'
+    ).gets(
+       istrhead('"foo\\nbar"'), 100, indent(3), istrpart('"zzo"'), 1, istrtail('"o\\n  zoo"')
+    ).noWarning();
+
+    lexing(
+      '#"foo',
+      '  bar#{100',
+      '   }zzo#{1}o',
+      ' zoo"'
+    ).failsAt(1, 1);
+
   });
 
 });
