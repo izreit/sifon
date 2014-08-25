@@ -206,6 +206,13 @@ var Lexer = klass({
         return Token.make("QUALIFIER", m[1], l, c);
       }),
 
+  lexRegexp_:
+    rule(
+      /\/\/((?:[^\\\/]|\\.)+)\/([a-z]*)|(?=.?)/g,
+      function (m, l, c) {
+        return Token.make("REGEXP", { body: m[1], flags: m[2] }, l, c);
+      }),
+
   lexSpecialSymbols_:
     rule(
       /(\.(?!\.)|\.\.(?!\.)|\?\.(?!\.)|->|:(?!:)|::|@(?!@)|\|>|[\(\)\[\]{},'`\;])|(?=.?)/g,
@@ -387,6 +394,7 @@ var Lexer = klass({
              || this.lexUnquotes_()
              || this.lexOperator_()
              || this.lexQualifier_()
+             || this.lexRegexp_()
              || this.lexSpecialSymbols_()
              || this.lexStringInterpolation_()
              || this.lexString_()

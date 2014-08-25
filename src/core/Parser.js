@@ -237,10 +237,7 @@ var Parser = klass({
     tok || (tok = this.lex_());
     loc || (loc = tok);
     msg || (msg = "");
-    var value = (tok.toktype === "IDENTIFIER") ? ("identifier '" + tok.val + "'")
-                     : (tok.toktype === "STR") ? ("string literal " + tok.val + ")")
-                                               : "'" + tok.toktype + "'";
-    return CompilerMessage.Error.unexpected(loc, value, "ParseError", msg);
+    return CompilerMessage.Error.unexpected(loc, tok.toString(), "ParseError", msg);
   },
 
   parse: function (env) {
@@ -317,7 +314,7 @@ var Parser = klass({
         // fallthrough
       case "IDENTIFIER": case "HASH_IDENTIFIER":
         return Node.symbolFromToken(t);
-      case "NUM": case "STR":
+      case "NUM": case "STR": case "REGEXP":
         return Node.fromToken(t);
       case "ISTR_HEAD":
         return this.parseInterpolatedString_(t);

@@ -42,7 +42,22 @@ var Token = klass({
 
   isEnd: function () {
     return this.toktype == "EOF" || this.toktype == "ERROR";
-  }
+  },
+
+  toString: function () {
+    switch (this.toktype) {
+    case "IDENTIFIER":
+      return "identifier '" + this.val + "'";
+    case "STR":
+      return "string literal (" + this.val + ")";
+    case "NUM":
+      return "number literal (" + this.val + ")";
+    case "REGEXP":
+      return "regexp literal (/" + this.val.source + "/" + this.val.flags + ")";
+    default:
+      return this.toktype;
+    }
+  },
 
 });
 

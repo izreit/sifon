@@ -114,6 +114,22 @@ var Node = {
 
   // ------------------
 
+  toSource: function (n, onerror) {
+    switch (n.nodetype) {
+    case "SYMBOL":
+      Node.confirmIsJSIdentifier(n, onerror);
+      return n.val;
+    case "NUM": case "STR":
+      return n.val;
+    case "REGEXP":
+      return "/" + n.val.body + "/" + n.val.flags;
+    default:
+      devel.dthrow("LogicError: Node.toSource() on " + n.nodetype + ".");
+    }
+  },
+
+  // ------------------
+
   normalize: function rec(node) {
     if (node instanceof Array) {
       var a = node.map(rec).filter(function (x) { return x !== undefined });

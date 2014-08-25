@@ -959,5 +959,21 @@ describe("Compiler", function () {
     "foo ABCinside foofoo endinsideABCdsa"
   );
 
+  // regexp
+
+  evaluating(
+    '"aafoOOoobARRrrrrbbbfoooBarrccc".replace //foo+bar+/gi "-"'
+  ).willBe(
+    "aa-bbb-ccc"
+  );
+
+  evaluating(
+    're .= //fo(o+b)ar+/',
+    'm .= "foooobarrrr".match re',
+    'm.[1]'
+  ).willBe(
+    "ooob"
+  );
+
 });
 

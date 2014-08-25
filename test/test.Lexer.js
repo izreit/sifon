@@ -23,8 +23,19 @@ function compareToken(a, b) {
     return reason("NotAndNotNil");
   if (a.toktype != b.toktype)
     return reason("TypeMismatch");
-  if (a.val != b.val)
-    return reason("ValueMismatch");
+  if (a.toktype === "REGEXP") {
+    if (a.val.source !== b.val.source)
+      return reason("RegExpSourceMismatch");
+    if ((a.val.flags.indexOf("g") !== -1) !== (b.val.flags.indexOf("g") !== -1))
+      return reason("RegExpGlobalMismatch");
+    if ((a.val.flags.indexOf("i") !== -1) !== (b.val.flags.indexOf("i") !== -1))
+      return reason("RegExpIgnoreCaseMismatch");
+    if ((a.val.flags.indexOf("m") !== -1) !== (b.val.flags.indexOf("m") !== -1))
+      return reason("RegExpMultilineMismatch");
+  } else {
+    if (a.val != b.val)
+      return reason("ValueMismatch");
+  }
   if (a.line != -1 && b.line != -1 && a.line != b.line)
     return reason("LineMismatch");
   if (a.col != -1 && b.col != -1 && a.col != b.col)
@@ -72,6 +83,9 @@ function asToken(v) {
     return Token.makeStr('"' + v + '"', line, col);
   } else if (typeof v == "number") {
     return Token.makeNum(v, line, col);
+  } else if (v instanceof RegExp) {
+    var flags = (v.global ? "g" : "") + (v.multiline ? "m" : "") + (v.ignoreCase ? "i" : "");
+    return Token.make("REGEXP", { body: v.source, flags: flags }, line, col);
   } else if (typeof v == "object") {
     if (v === eof) {
       return Token.makeEof(line, col);
@@ -213,6 +227,11 @@ describe("Lexer", function () {
     lexing("call/cc").gets(id("call/cc"));
     lexing("...rest-params").gets(id("...rest-params"));
     lexing('[]').gets(sym("["), sym("]"));
+
+    // regexp
+    lexing('//foo bar/gi').gets(/foo bar/gi);
+    lexing('//foo bar\\/zoo/m').gets(/foo bar\/zoo/m);
+    lexing('//foo (?:\\d+|bca)bar\\/zoo/m').gets(/foo (?:\d+|bca)bar\/zoo/m);
   });
 
   describe("Non-trivial", function () {

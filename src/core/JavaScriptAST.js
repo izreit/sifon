@@ -429,12 +429,11 @@ var p = PRECEDENCE;
 // -----------
 
 expr("Identifier", p.Primary, [Node], function () {
-  //Node.confirmIsJSIdentifier(this.children_[0], JavaScriptAST.onerror);
-  return this.children_[0].val;
+  return Node.toSource(this.children_[0]);
 });
 
 expr("Literal", p.Primary, [Node], function () {
-  return this.children_[0].val;
+  return Node.toSource(this.children_[0]);
 });
 
 expr("ArrayLiteral",
