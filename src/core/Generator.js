@@ -142,13 +142,6 @@ var Ignore = function (env) {
            ident_or_lit(expr.children_[0])))
       return [pe[0], undefined];
 
-    //if ((expr instanceof js.Identifier) ||
-    //    (expr instanceof js.Literal) ||
-    //    (expr instanceof js.ExpressionStatement &&
-    //      (expr.children_[0] instanceof js.Identifier ||
-    //       expr.children_[0] instanceof js.Literal)))
-    //  return [pe[0], undefined];
-
     // TODO Array/object literals may also be able to be ignored.
     //// TODO! Check Environment to confirm the identifier is local.
     //// Global variables, which may have getters, are not ignorable.
@@ -168,7 +161,6 @@ function special_form(name, spec, handler) {
   function special_op_impl(node, env, context) {
     var arg = matcher(node);
     if (arg.fail) {
-      //console.log("SPOP-FAIL: " + JSON.stringify(arg));
       var loc = arg.node || node;
       this.onerror_(CompilerMessage.Error.invalidSpecialForm(loc, node[0].val));
       return [undefined, undefined];
@@ -822,10 +814,6 @@ function make_matcher_x(self, matchee_ast, cond_node, env,
     }
 
   } else if (Node.isArrayWithHead(cond_node, "<<object>>")) {
-    //// `(,matchee_ast && typeof ,matchee_ast === "object")
-    //result_struct_cond_asts.push(matchee_ast,
-    //                        js.StrictEq(js.Typeof(matchee_ast), "object"));
-
     // `(,matchee_ast instanceof Object)
     result_struct_cond_asts.push(js.Instanceof(matchee_ast, makeIdentifier("Object")));
 
@@ -947,7 +935,6 @@ function make_matcher(self, matchee_ast, cond_node, env) {
 }
 
 function generate_match(self, expr, cases, default_pe, env, context) {
-  //default_pe || (default_pe = [undefined, makeUndefined(env)]);
   if (!default_pe) {
     default_pe = [
       js.ThrowStatement(js.Call(makeIdentifier("Error"),
@@ -1249,20 +1236,6 @@ special_form(["#", "<<macro-definition>>"],
     return context.apply([undefined, fun_ast]);
   }
 );
-
-// WILLBEREMOVED
-//function generate_funcall(self, node, call_method, env, context) {
-//  //var pses = util.unzipMapped(node, function (ch) {
-//  //  return self.generate_(ch, env, AsExpression);
-//  //});
-//  //var ps = pses[0];
-//  //var es = pses[1];
-//  //var fun = es.shift();
-//  //return context.apply([
-//  //  asts_to_statements(ps),
-//  //  call_method(fun, js.Arguments().setChildren(es))
-//  //]);
-//}
 
 function generate_funcall(self, fun, args, call_method, env, context) {
   var fun_pe = self.generate_(fun, env, AsExpression);

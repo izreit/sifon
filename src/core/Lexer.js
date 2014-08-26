@@ -73,12 +73,6 @@ var UNMATCHED_CLOSE_BRACKET = { UNMATCHED: 0 };
 var Lexer = klass({
 
   initialize: function (onerror, parent) {
-    // Migration check. TODO Remove.
-    if (typeof onerror === "string") {
-      devel.dthrow("Lexer.initialize() invoked with wrong arguments...");
-      debugger;
-    }
-
     onerror || (onerror = function () { throw CompilerMessage.FATAL; });
     this.onerror_ = onerror;
     this.parent_ = parent;
@@ -172,7 +166,6 @@ var Lexer = klass({
   lexUnquotes_:
     after(
       [" ", "\t", "\u000b", "\u000c", "\ufeff", "\n", "\r", "", "(", "[", "{", ",", ".", ":", "'", "@"],
-      ///(?:(,@?)(?![ \t\u000b\u000c\u000a\ufeff]))|(?=.?)/g,
       /(?:(,@?))|(?=.?)/g,
       function (m, l, c) {
         return (m[1].length == 1) ? Token.makeUnquote(l, c)

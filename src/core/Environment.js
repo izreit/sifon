@@ -275,7 +275,6 @@ var Environment = klass({
   },
 
   compileTimeEval: function (src) {
-    //console.log("CTEVAL: " + src);
     return this.top_.interp_scope.eval(src);
   },
 

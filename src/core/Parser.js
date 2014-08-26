@@ -185,7 +185,7 @@ var Parser = klass({
       case "|>":
         // Just ignore: all we need to do for "|>", done in rawLex_().
         continue;
-      case ")": case "]": case "}": case "EOF": //case ":":
+      case ")": case "]": case "}": case "EOF":
       case "ISTR_PART": case "ISTR_TAIL":
       case "REGEXP_PART": case "REGEXP_TAIL":
         if (this.yet_unclosed_.implicit) {
@@ -302,7 +302,6 @@ var Parser = klass({
       case "IMPLICIT_OPEN":
         this.openArray_(t.col, t.toktype);
         node = this.parseColonedExpression_();
-        if (!node) debugger;
         (t.empty_lines > 0) && (node.empty_lines = t.empty_lines);
         if (!this.dropIf_("IMPLICIT_CLOSE")) {
           this.onerror_(this.makeError_());

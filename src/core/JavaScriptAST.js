@@ -348,18 +348,6 @@ function createASTNode(name, base_klass, prec, children_spec, codifier) {
     setChild: function (idx, ch) {
       var matched = spec_matcher.match(this, idx, ch);
       if (matched === false) {
-
-        // Throwing debug info: WILL BE REMOVED.
-        //
-        // function stringifyNode(v) { return v !== Node ? v : "(Node)"; }
-        // var message = Template("Invalid argument for ###::setChild(###, ###). / "
-        //                         + "  (DebugInfo: spec_matcher says it requires ###) / "
-        //                         + "  (DebugInfo: given specs ###)",
-        //                           name, idx,
-        //                           (ch.code ? "<code: " + ch.code() + ">" : JSON.stringify(ch)),
-        //                           stringifyNode(spec_matcher.nth(idx)),
-        //                           JSON.stringify(children_spec.map(stringifyNode)));
-
         var ii = (idx + 1) + ([, "st", "nd", "rd"][(idx + 1) > 20 ? ((idx + 1) % 10) : (idx + 1)] || "th");
         var message = Template("The ### child of ### cannot be ###.",
                                ii, name, (ch.code ? "<code: " + ch.code() + ">" : JSON.stringify(ch)));
@@ -618,8 +606,6 @@ stmt("Block",
   ["Statement", "..."],
   function () {
     var rcs = this.rawCodeOfChildren_(false, true);
-    //if (rcs.length == 0)
-    //  return ";";
     return Template("{<@+@><@n@>###<@-@><@n@>}", rcs.join("<@n@>"));
   }
 );
