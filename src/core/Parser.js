@@ -103,7 +103,7 @@ var Parser = klass({
     var PERMIT_SHALLOW_INDENT      = dic(["(", "[", "{", "->"]);
     var DONT_PERMIT_SHALLOW_BEFORE = dic([")", "]", "}"]);
     var IMPLICIT_OPEN_AFTER        = dic(["INDENT", "|>", "(", "[", "{", ",", "->", ":",
-                                          "ISTR_HEAD", "ISTR_PART"]);
+                                          "ISTR_HEAD", "ISTR_PART", "REGEXP_HEAD", "REGEXP_PART"]);
     var IMPLICIT_OPEN_BEFORE       = dic(["->", "HASH_IDENTIFIER"]);
     var DONT_OPEN_BEFORE           = dic([
 
@@ -112,8 +112,8 @@ var Parser = klass({
       "HASH_IDENTIFIER", // ditto.
       ")", "]", "}",     // inserts IMPLICIT_CLOSE before itself
       ",", "EOF",        // ditto.
-      "ISTR_PART",       // ditto.
-      "ISTR_TAIL",       // ditto.
+      "ISTR_PART",   "ISTR_TAIL",    // ditto.
+      "REGEXP_PART", "REGEXP_TAIL",  // ditto.
 
       // Exceptional Case: QUALIFIER. They are always parsed as a non-head part
       // of implicit-array, never be a head (except written in parentheses (i.e. (*foo)).
@@ -187,6 +187,7 @@ var Parser = klass({
         continue;
       case ")": case "]": case "}": case "EOF": //case ":":
       case "ISTR_PART": case "ISTR_TAIL":
+      case "REGEXP_PART": case "REGEXP_TAIL":
         if (this.yet_unclosed_.implicit) {
           this.unlex_(token);
           return Token.make("IMPLICIT_CLOSE", undefined, token.line, token.col);
@@ -237,10 +238,7 @@ var Parser = klass({
     tok || (tok = this.lex_());
     loc || (loc = tok);
     msg || (msg = "");
-    var value = (tok.toktype === "IDENTIFIER") ? ("identifier '" + tok.val + "'")
-                     : (tok.toktype === "STR") ? ("string literal " + tok.val + ")")
-                                               : "'" + tok.toktype + "'";
-    return CompilerMessage.Error.unexpected(loc, value, "ParseError", msg);
+    return CompilerMessage.Error.unexpected(loc, tok.toString(), "ParseError", msg);
   },
 
   parse: function (env) {
@@ -262,7 +260,8 @@ var Parser = klass({
     this.yet_unclosed_stack_.push(this.yet_unclosed_);
     var t = {};
     t.col = col;
-    t.implicit = (type !== "(" && type !== "[" && type !== "{" && type !== "ISTR_HEAD");
+    t.implicit = (type !== "(" && type !== "[" && type !== "{"
+                   && type !== "ISTR_HEAD" && type !== "REGEXP_HEAD");
     t.type = type;  // Never used. Just a debug info.
     this.yet_unclosed_ = t;
     if (!this.yet_unclosed_.implicit) ++this.explicit_nest_count;
@@ -317,10 +316,12 @@ var Parser = klass({
         // fallthrough
       case "IDENTIFIER": case "HASH_IDENTIFIER":
         return Node.symbolFromToken(t);
-      case "NUM": case "STR":
+      case "NUM": case "STR": case "REGEXP":
         return Node.fromToken(t);
       case "ISTR_HEAD":
         return this.parseInterpolatedString_(t);
+      case "REGEXP_HEAD":
+        return this.parseMultilineRegExp_(t);
       case "(":
         return this.parseTupleOrValue_(t);
       case "[":
@@ -371,33 +372,6 @@ var Parser = klass({
     }
     return node;
   },
-
-  //parseValue_: function () {
-  //  var t;
-  //  var node;
-  //  var nodes;
-
-  //  t = this.lex_();
-  //  switch (t.toktype) {
-  //  case "IMPLICIT_OPEN":
-  //    this.openArray_(t.col, t.toktype);
-  //    node = this.parseQualifiedExpression_();
-  //    (t.empty_lines > 0) && (node.empty_lines = t.empty_lines);
-  //    if (!this.dropIf_("IMPLICIT_CLOSE")) {
-  //      this.onerror_(this.makeError_());
-  //      // Just continue.
-  //    }
-  //    this.closeArray_();
-  //    return node;
-  //  default:
-  //    this.unlex_(t);
-  //    node = this.parseSimpleValue_();
-  //    if (node === undefined)
-  //      return node;
-  //    return node;
-  //  }
-  //  devel.neverReach();
-  //},
 
   parseColonedExpression_: function () {
     var node = this.parseQualifiedExpression_();
@@ -482,9 +456,7 @@ var Parser = klass({
   parseInterpolatedString_: function (t) {
     var found_tail = false;
     var node;
-    var t;
 
-    debugger;
     this.openArray_(this.peek_().col, t.toktype);
     node = Node.makeStrFromLiteralized(t.val, t);
     var nodes = [Node.makeSymbol("+", t), node];
@@ -496,12 +468,42 @@ var Parser = klass({
       if (t = this.lexIf_("ISTR_PART", "ISTR_TAIL")) {
         found_tail = (t.toktype === "ISTR_TAIL");
         nodes.push(Node.makeStrFromLiteralized(t.val, t));
+      } else {
+        devel.neverReach();
       }
     } while (!found_tail);
 
     this.closeArray_();
 
     return Node.makeArray(nodes, t);
+  },
+
+  parseMultilineRegExp_: function (t) {
+    var found_tail = false;
+    var node;
+    var token;
+
+    this.openArray_(this.peek_().col, t.toktype);
+    node = Node.makeStr(t.val, t);
+    var nodes = [Node.makeSymbol("+", t), node];
+    do {
+      node = this.parseValue_();
+      if (node === undefined)
+        return this.onerror_(this.makeError_('An interpolated regexp is not terminated.'));
+      nodes.push(node);
+      if (token = this.lexIf_("REGEXP_PART")) {
+        nodes.push(Node.makeStr(token.val, token));
+      } else if (token = this.lexIf_("REGEXP_TAIL")) {
+        found_tail = true;
+        nodes.push(Node.makeStr(token.val.body, token));
+      } else {
+        devel.neverReach();
+      }
+    } while (!found_tail);
+    this.closeArray_();
+
+    var whole = [Node.makeSymbol("RegExp", t), Node.makeArray(nodes, t), Node.makeStr(token.val.flags, t)];
+    return Node.makeArray(whole, t);
   },
 
   parseTupleOrValue_: function (t) {
@@ -571,14 +573,6 @@ var Parser = klass({
         continue;
       }
 
-      //if (token = this.lexIf_(":")) {
-      //  if ((next_node = this.parseValue_()) === undefined) {
-      //    this.onerror_(this.makeError_("No value given after ':'"));
-      //  } else {
-      //    node = Node.makeArray([Node.symbolFromToken(token), node, next_node], token);
-      //  }
-      //}
-
       nodes.push(node);
       this.dropIf_(",");
     }
@@ -606,14 +600,6 @@ var Parser = klass({
         this.skipToRecoverUntil_("}");
         continue;
       }
-
-      //if (token = this.lexIf_(":")) {
-      //  if ((next_node = this.parseValue_()) === undefined) {
-      //    this.onerror_(this.makeError_("No value given after ':'"));
-      //  } else {
-      //    node = Node.makeArray([Node.symbolFromToken(token), node, next_node], token);
-      //  }
-      //}
 
       nodes.push(node);
       this.dropIf_(",");

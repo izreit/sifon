@@ -959,5 +959,58 @@ describe("Compiler", function () {
     "foo ABCinside foofoo endinsideABCdsa"
   );
 
+  // regexp
+
+  evaluating(
+    '"aafoOOoobARRrrrrbbbfoooBarrccc".replace //foo+bar+/gi "-"'
+  ).willBe(
+    "aa-bbb-ccc"
+  );
+
+  evaluating(
+    're .= //fo(o+b)ar+/',
+    'm .= "foooobarrrr".match re',
+    'm.[1]'
+  ).willBe(
+    "ooob"
+  );
+
+  evaluating(
+    're .= ///',
+    '  f\\\\oo',
+    '  (\\d+|bca)\t ## comments',
+    '  bar\\/zo\\#o',
+    '///',
+    'x .= "f\\\\oo12bar/zo#o".match re',
+    'x.[1]'
+  ).willBe(
+    "12"
+  );
+  evaluating(
+    'foo .= "Z"',
+    'zzz .= # a -> "" .+ a',
+    're .= ///',
+    '  foo',
+    '  (\\d+|bca)\t ## comments',
+    '  b#{foo}a#{zzz 1}r\\/zo\\#o',
+    '///',
+    'x .= "foo12bZa1r/zo#o".match re',
+    'x.[1]'
+  ).willBe(
+    "12"
+  );
+
+  evaluating(
+    're .= ///',
+    '  f\\\\oo',
+    '  (\\d+|bca)\t ## comments',
+    '  b#{foo}a#{zzz 1}r\\/zo\\#o',
+    '///',
+    'x .= "f\\\\oo12bZa1r/zo#o".match re',
+    'x.[1]'
+  ).willBe(
+    "12"
+  );
+
 });
 

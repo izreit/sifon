@@ -1817,6 +1817,7 @@ module.exports = klass({
         return context.apply([undefined, js.Identifier(node)]);
       case "NUM":
       case "STR":
+      case "REGEXP":
         return context.apply([undefined, js.Literal(node)]);
       default:
         var err = CompilerMessage.Error.unexpected(node, "value nodetype:" + node.nodetype, "CompileError",

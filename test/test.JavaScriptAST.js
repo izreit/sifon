@@ -67,7 +67,7 @@ describe("JavaScriptAST", function () {
   evaluating(
     js.Typeof(
       js.Not(
-        js.Literal(sym(true))))
+        js.Literal(sym("true"))))
   ).willBe(
     "boolean"
   );
