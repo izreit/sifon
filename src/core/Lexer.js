@@ -63,7 +63,7 @@ var IDENT = [
 ].join("");
 
 // A dummy marker to notify the parent lexer of
-// "reached to the end of a string interpolation."
+// "reached to the end of a string/regexp interpolation."
 // Only used by a child lexer (`!!this.parent_`).
 var UNMATCHED_CLOSE_BRACKET = { UNMATCHED: 0 };
 
@@ -104,7 +104,7 @@ var Lexer = klass({
     // Counts the current 'yet closed' open-bracket symbols ({).
     // When this count goes negative while `this.parent_` is not undefined,
     // we found that the close-bracket symbol (}) (that decrements the count)
-    // is 'unmatched'.  This means the expression inside of a string
+    // is 'unmatched'.  This means the expression inside of a string/regexp
     // interpolation is terminated there and hence the control have to be
     // brought back to the parent lexer.
     this.open_brackets_ = 0;
@@ -210,7 +210,50 @@ var Lexer = klass({
     rule(
       /\/\/((?:[^\\\/]|\\.)+)\/([a-z]*)|(?=.?)/g,
       function (m, l, c) {
-        return Token.make("REGEXP", { body: m[1], flags: m[2] }, l, c);
+        return Token.makeRegExp(m[1], m[2] || "", l, c);
+      }),
+
+  stripMultilineRegExpBody_: function (s, unescape_slash) {
+    // Remove comments.
+    s = s.replace(/##[^\r\n\u2028\u2029]*/g, "");
+    // Remove whitespaces.
+    s = s.replace(/^[ \t\u000b\u000c\ufeff\r\n\u2028\u2029]+/, "");
+    s = s.replace(/([^\\])[ \t\u000b\u000c\ufeff\r\n\u2028\u2029]+/g, function (_, s) { return s; });
+    // Unescape escaped characters.
+    s = unescape_slash ? s.replace(/\\([\s#\/])/g, function (_, s) { return s; })
+                       : s.replace(/\\([\s#])/g,   function (_, s) { return s; });
+    return s;
+  },
+
+  lexMultilineRegExp_:
+    rule(
+      /\/\/\/((?:[^\\\/#]|\\[\s\S]|#(?!{))+)(\/\/\/([a-z]*)|#{)|(?=.?)/g,
+      function (m, l, c) {
+        if (m[2] !== '#{') {
+          // No interpolations are.  Just return a plain regexp.
+          var s = this.stripMultilineRegExpBody_(m[1], false);
+          return Token.makeRegExp(s, m[3] || "", l, c);
+        }
+
+        this.startInterpolation_("regexp");
+        var s = this.stripMultilineRegExpBody_(m[1], true);
+        return Token.makeInterpolatedRegexpHead(s, l, c);
+      }),
+
+  lexMultilineRegExpPart_:
+    rule(
+      /((?:[^\\\/#]|\\[\s\S]|#(?!{))+)(\/\/\/([a-z]*)|#{)|(?=.?)/g,
+      function (m, l, c) {
+        var s = this.stripMultilineRegExpBody_(m[1], true);
+
+        if (m[2] !== '#{') {
+          // The end of the interpolated string.
+          return Token.makeInterpolatedRegexpTail(s, m[3] || "", l, c);
+        }
+
+        // Another interpolation found.
+        this.startInterpolation_("regexp");
+        return Token.makeInterpolatedRegexpPart(s, l, c);
       }),
 
   lexSpecialSymbols_:
@@ -220,8 +263,9 @@ var Lexer = klass({
         return Token.make(m[1], m[1], l, c);
       }),
 
-  startInterpolation_: function () {
+  startInterpolation_: function (type) {
     this.child_ = new Lexer(this.onerror_, this);
+    this.child_.type = type;
     this.child_.setInput(this.src_, this.start_, this.line_, this.col_);
   },
 
@@ -258,7 +302,7 @@ var Lexer = klass({
           return Token.makeStr('"' + s + '"', l, c);
         }
 
-        this.startInterpolation_();
+        this.startInterpolation_("str");
         this.strip_indent_ = strip_indent;  // Used and cleared only by `lexStringInterpolationPart_()`.
         return Token.makeInterpolatedStrHead('"' + s + '"', l, c);
       }),
@@ -276,7 +320,7 @@ var Lexer = klass({
         }
 
         // Another interpolation found.
-        this.startInterpolation_();
+        this.startInterpolation_("str");
         return Token.makeInterpolatedStrPart('"' + s + '"', l, c);
       }),
 
@@ -360,19 +404,23 @@ var Lexer = klass({
         return this.ungotten_.pop();
 
       // `this.child_` is truthy iff we are lexing the expressions inside of
-      // a string interpolation.  Redirect to the child.
+      // a string/regexp interpolation.  Redirect to the child.
       if (this.child_) {
         var ret = this.child_.lex();
         if (ret !== UNMATCHED_CLOSE_BRACKET)
           return ret;
 
-        // Here we found an 'unmatched' close bracket that indeicates
-        // the end of a string interpolation.  Continue after proceeding the position.
+        // Here we found an 'unmatched' close bracket that indeicates the end of
+        // a string/regexp interpolation.  Continue after proceeding the position.
+        var type = this.child_.type;
         this.start_ = this.child_.start_;
         this.line_ = this.child_.line_;
         this.col_ = this.child_.col_;
         this.child_ = undefined;
-        return this.lexStringInterpolationPart_();
+        if (type === "str")
+          return this.lexStringInterpolationPart_();
+        else
+          return this.lexMultilineRegExpPart_();
       }
 
       if (this.lexing_indent) {
@@ -395,6 +443,7 @@ var Lexer = klass({
              || this.lexOperator_()
              || this.lexQualifier_()
              || this.lexRegexp_()
+             || this.lexMultilineRegExp_()
              || this.lexSpecialSymbols_()
              || this.lexStringInterpolation_()
              || this.lexString_()

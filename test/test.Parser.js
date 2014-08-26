@@ -862,7 +862,7 @@ describe("Parser", function () {
 
   });
 
-  describe("String Interpolations", function () {
+  describe("String/RegExp Interpolations", function () {
 
     parsing('#"foo bar zoo#aa"').willBe("foo bar zoo#aa");
 
@@ -928,6 +928,35 @@ describe("Parser", function () {
        "dsa"]
     );
 
+    parsing(
+      '///',
+      '  foo#{foo}\\ bar',
+      '  zoo',
+      '///g'
+    ).willBe(
+      [sym("RegExp"),
+       [sym("+"),
+        "foo",
+        sym("foo"),
+        " barzoo"],
+       "g"]
+    );
+
+    parsing(
+      '///',
+      '  f\\\\oo#{foo}\\ b#{zz 1}ar',
+      '  zoo',
+      '///g'
+    ).willBe(
+      [sym("RegExp"),
+       [sym("+"),
+        "f\\\\oo",
+        sym("foo"),
+        " b",
+        [sym("zz"), 1],
+        "arzoo"],
+       "g"]
+    );
   });
 
 });

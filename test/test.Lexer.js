@@ -17,6 +17,16 @@ function compareToken(a, b) {
     return why + " " + JSON.stringify(a) + " and " + JSON.stringify(b) + ("// " + a.val + " " + b.val);
   }
 
+  function regexflagcheck(fa, fb) {
+    if ((fa.indexOf("g") !== -1) !== (fb.indexOf("g") !== -1))
+      return reason("RegExpGlobalMismatch");
+    if ((fa.indexOf("i") !== -1) !== (fb.indexOf("i") !== -1))
+      return reason("RegExpIgnoreCaseMismatch");
+    if ((fa.indexOf("m") !== -1) !== (fb.indexOf("m") !== -1))
+      return reason("RegExpMultilineMismatch");
+    return undefined;
+  }
+
   if (a === b && a === undefined || a === null)
     return "BothNil";
   if (!!a != !!b)
@@ -26,12 +36,15 @@ function compareToken(a, b) {
   if (a.toktype === "REGEXP") {
     if (a.val.source !== b.val.source)
       return reason("RegExpSourceMismatch");
-    if ((a.val.flags.indexOf("g") !== -1) !== (b.val.flags.indexOf("g") !== -1))
-      return reason("RegExpGlobalMismatch");
-    if ((a.val.flags.indexOf("i") !== -1) !== (b.val.flags.indexOf("i") !== -1))
-      return reason("RegExpIgnoreCaseMismatch");
-    if ((a.val.flags.indexOf("m") !== -1) !== (b.val.flags.indexOf("m") !== -1))
-      return reason("RegExpMultilineMismatch");
+    var ch = regexflagcheck(a.val.flags, b.val.flags);
+    if (ch !== undefined)
+      return ch;
+  } else if (a.toktype === "REGEXP_TAIL") {
+    if (a.val.body !== b.val.body)
+      return reason("RegExpTailBodyMismatch");
+    var ch = regexflagcheck(a.val.flags, b.val.flags);
+    if (ch !== undefined)
+      return ch;
   } else {
     if (a.val != b.val)
       return reason("ValueMismatch");
@@ -59,6 +72,9 @@ var comment  = function (comment) { return { comment: comment }; };
 var istrhead = function (str)     { return { istrhead: str }; };
 var istrpart = function (str)     { return { istrpart: str }; };
 var istrtail = function (str)     { return { istrtail: str }; };
+var regexphead = function (str)   { return { regexphead: str }; };
+var regexppart = function (str)   { return { regexppart: str }; };
+var regexptail = function (s, f)  { return { regexptail: s, flags: f }; };
 var eof = { eof: 1 };
 var unquote = { unquote: 1 };
 var unquote_s = { unquote_s: 1 };
@@ -113,6 +129,12 @@ function asToken(v) {
       return Token.makeInterpolatedStrPart(v.istrpart, line, col);
     } else if (v.istrtail !== undefined) {
       return Token.makeInterpolatedStrTail(v.istrtail, line, col);
+    } else if (v.regexphead !== undefined) {
+      return Token.makeInterpolatedRegexpHead(v.regexphead, line, col);
+    } else if (v.regexppart !== undefined) {
+      return Token.makeInterpolatedRegexpPart(v.regexppart, line, col);
+    } else if (v.regexptail !== undefined) {
+      return Token.makeInterpolatedRegexpTail(v.regexptail, v.flags, line, col);
     } else {
       throw "asToken: Unknown type " + JSON.stringify(v);
     }
@@ -229,9 +251,29 @@ describe("Lexer", function () {
     lexing('[]').gets(sym("["), sym("]"));
 
     // regexp
+
+    lexing('//foobar/').gets(/foobar/);
     lexing('//foo bar/gi').gets(/foo bar/gi);
     lexing('//foo bar\\/zoo/m').gets(/foo bar\/zoo/m);
     lexing('//foo (?:\\d+|bca)bar\\/zoo/m').gets(/foo (?:\d+|bca)bar\/zoo/m);
+
+    lexing(
+      '///fo',
+      '  o\\ bar///'
+    ).gets(/foo bar/);
+
+    lexing(
+      '///fo  ## comments',
+      '  o\\ bar///gi'
+    ).gets(/foo bar/gi);
+
+    lexing(
+      '///',
+      '  foo\\ ',
+      '  (?:\\d+|bca)\t ## comments',
+      '  bar\\/zo\\#o',
+      '///m'
+    ).gets(/foo (?:\d+|bca)bar\/zo#o/m);
   });
 
   describe("Non-trivial", function () {
@@ -475,6 +517,48 @@ describe("Lexer", function () {
       '   }zzo#{1}o',
       ' zoo"'
     ).failsAt(1, 1);
+
+  });
+
+  describe("Multiline RegExp", function () {
+
+    lexing(
+      '///f\\oo bfoo///'
+    ).gets(
+      /f\oobfoo/
+    );
+
+    lexing(
+      '///fo',
+      '  o\\ b#{x}ar///'
+    ).gets(
+      regexphead("foo b"), id("x"), regexptail("ar", "")
+    );
+
+    lexing(
+      '///fo  ## comments',
+      '  o\\ b#{foo .+ 100}a#{foo}r///gi'
+    ).gets(
+      regexphead("foo b"),
+        id("foo"), op("+"), 100,
+      regexppart("a"),
+        id("foo"),
+      regexptail("r", "gi")
+    );
+
+    lexing(
+      '///',
+      '  foo\\ ',
+      '  (?:\\d+|bca)\t ## comments',
+      '  b#{foo}a#{zzz 1}r\\/zo\\#o',
+      '///m'
+    ).gets(
+      regexphead("foo (?:\\d+|bca)b"),
+        id("foo"),
+      regexppart("a"),
+        id("zzz"), 1,
+      regexptail("r/zo#o", "m")
+    );
 
   });
 

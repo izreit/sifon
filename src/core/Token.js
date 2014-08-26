@@ -22,6 +22,13 @@ var Token = klass({
     makeInterpolatedStrHead: function (v, l, c) { return new Token("ISTR_HEAD", v, l, c) },
     makeInterpolatedStrPart: function (v, l, c) { return new Token("ISTR_PART", v, l, c) },
     makeInterpolatedStrTail: function (v, l, c) { return new Token("ISTR_TAIL", v, l, c) },
+
+    makeRegExp: function (body, flags, l, c) { return new Token("REGEXP", { body: body, flags: flags }, l, c) },
+    makeInterpolatedRegexpHead: function (v, l, c) { return new Token("REGEXP_HEAD", v, l, c) },
+    makeInterpolatedRegexpPart: function (v, l, c) { return new Token("REGEXP_PART", v, l, c) },
+    makeInterpolatedRegexpTail: function (body, flags, l, c) {
+      return new Token("REGEXP_TAIL", { body: body, flags: flags }, l, c)
+    },
   },
 
   initialize: function (t, v, l, c, nt) {
